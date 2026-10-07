@@ -41,7 +41,14 @@ function cargarExcel(event) {
             });
 
 
-            // Tomar la primera hoja del Excel
+            if (!libro.SheetNames || libro.SheetNames.length === 0) {
+
+                throw new Error("El archivo no contiene hojas.");
+
+            }
+
+
+            // Primera hoja del Excel
 
             const nombreHoja = libro.SheetNames[0];
 
@@ -61,6 +68,7 @@ function cargarExcel(event) {
                     "El archivo no contiene información.";
 
                 return;
+
             }
 
 
@@ -78,12 +86,20 @@ function cargarExcel(event) {
 
         catch (error) {
 
-            console.error(error);
+            console.error("Error leyendo Excel:", error);
 
             estado.textContent =
                 "No fue posible leer el archivo Excel.";
 
         }
+
+    };
+
+
+    lector.onerror = function() {
+
+        estado.textContent =
+            "No fue posible leer el archivo.";
 
     };
 
@@ -94,7 +110,7 @@ function cargarExcel(event) {
 
 
 // =====================================================
-// LIMPIAR DATOS
+// PREPARAR DATOS
 // =====================================================
 
 function prepararDatos() {
@@ -109,11 +125,13 @@ function prepararDatos() {
             fila["Valor Remision"] ??
             0;
 
+
         const costo =
             fila["Costo"] ??
             fila["COSTO"] ??
             fila["Costos"] ??
             0;
+
 
         return {
 
@@ -152,87 +170,26 @@ function prepararDatos() {
 
 }
 
-function limpiarNumero(valor) {
+
+// =====================================================
+// LIMPIAR TEXTO
+// =====================================================
+
+function limpiarTexto(valor) {
 
     if (
         valor === null ||
-        valor === undefined ||
-        valor === ""
-    ) {
-        return 0;
-    }
-
-    if (typeof valor === "number") {
-        return valor;
-    }
-
-    let texto = String(valor)
-        .trim()
-        .replace(/\$/g, "")
-        .replace(/\s/g, "");
-
-    /*
-       Maneja formatos como:
-
-       9,460,000
-       9.460.000
-       $9.460.000
-       $ 9,460,000
-       9460000
-    */
-
-    if (
-        texto.includes(".") &&
-        texto.includes(",")
+        valor === undefined
     ) {
 
-        // Formato tipo 9.460.000,50
-        texto = texto
-            .replace(/\./g, "")
-            .replace(",", ".");
-
-    } else if (
-        texto.includes(".")
-    ) {
-
-        const partes = texto.split(".");
-
-        if (
-            partes.length > 1 &&
-            partes[partes.length - 1].length === 3
-        ) {
-
-            // 9.460.000
-            texto = texto.replace(/\./g, "");
-
-        }
-
-    } else if (
-        texto.includes(",")
-    ) {
-
-        const partes = texto.split(",");
-
-        if (
-            partes.length > 1 &&
-            partes[partes.length - 1].length === 3
-        ) {
-
-            // 9,460,000
-            texto = texto.replace(/,/g, "");
-
-        } else {
-
-            // 9460000,50
-            texto = texto.replace(",", ".");
-
-        }
+        return "";
 
     }
 
-    const numero = Number(texto);
 
-    return isNaN(numero) ? 0 : numero;
+    return String(valor)
+        .replace(/\s+/g, " ")
+        .trim();
 
 }
 
@@ -254,6 +211,8 @@ function limpiarNumero(valor) {
     }
 
 
+    // Si Excel ya lo reconoce como número
+
     if (typeof valor === "number") {
 
         return valor;
@@ -264,11 +223,82 @@ function limpiarNumero(valor) {
     let texto = String(valor)
         .trim()
         .replace(/\$/g, "")
-        .replace(/\s/g, "")
-        .replace(/,/g, "");
+        .replace(/\s/g, "");
 
 
-    let numero = parseFloat(texto);
+    // Formato:
+    // 9.460.000,50
+
+    if (
+        texto.includes(".") &&
+        texto.includes(",")
+    ) {
+
+        texto = texto
+            .replace(/\./g, "")
+            .replace(",", ".");
+
+    }
+
+
+    // Formato:
+    // 9,460,000
+    // 9,460,000.50
+
+    else if (
+        texto.includes(",")
+    ) {
+
+        const partes =
+            texto.split(",");
+
+
+        if (
+            partes.length > 1 &&
+            partes[partes.length - 1].length === 3
+        ) {
+
+            texto =
+                texto.replace(/,/g, "");
+
+        }
+
+        else {
+
+            texto =
+                texto.replace(",", ".");
+
+        }
+
+    }
+
+
+    // Formato:
+    // 9.460.000
+
+    else if (
+        texto.includes(".")
+    ) {
+
+        const partes =
+            texto.split(".");
+
+
+        if (
+            partes.length > 1 &&
+            partes[partes.length - 1].length === 3
+        ) {
+
+            texto =
+                texto.replace(/\./g, "");
+
+        }
+
+    }
+
+
+    const numero =
+        Number(texto);
 
 
     if (isNaN(numero)) {
@@ -292,17 +322,22 @@ function obtenerDatosFiltrados() {
     const anio =
         document.getElementById("filtroAnio").value;
 
+
     const mes =
         document.getElementById("filtroMes").value;
+
 
     const vendedor =
         document.getElementById("filtroVendedor").value;
 
+
     const cliente =
         document.getElementById("filtroCliente").value;
 
+
     const linea =
         document.getElementById("filtroLinea").value;
+
 
     const producto =
         document.getElementById("filtroProducto").value;
@@ -312,33 +347,45 @@ function obtenerDatosFiltrados() {
 
         return (
 
-            (anio === "todos" ||
-                String(fila.Año) === anio)
+            (
+                anio === "todos" ||
+                String(fila.Año) === anio
+            )
 
             &&
 
-            (mes === "todos" ||
-                String(fila.Mes) === mes)
+            (
+                mes === "todos" ||
+                String(fila.Mes) === mes
+            )
 
             &&
 
-            (vendedor === "todos" ||
-                fila.Vendedor === vendedor)
+            (
+                vendedor === "todos" ||
+                fila.Vendedor === vendedor
+            )
 
             &&
 
-            (cliente === "todos" ||
-                fila.Cliente === cliente)
+            (
+                cliente === "todos" ||
+                fila.Cliente === cliente
+            )
 
             &&
 
-            (linea === "todos" ||
-                fila.Linea === linea)
+            (
+                linea === "todos" ||
+                fila.Linea === linea
+            )
 
             &&
 
-            (producto === "todos" ||
-                fila.Producto === producto)
+            (
+                producto === "todos" ||
+                fila.Producto === producto
+            )
 
         );
 
@@ -398,7 +445,7 @@ function llenarFiltros() {
 
 
 // =====================================================
-// CREAR OPCIONES DE SELECT
+// CREAR OPCIONES DE FILTROS
 // =====================================================
 
 function llenarSelect(id, valores, textoInicial) {
@@ -413,10 +460,14 @@ function llenarSelect(id, valores, textoInicial) {
     const opcionInicial =
         document.createElement("option");
 
-    opcionInicial.value = "todos";
+
+    opcionInicial.value =
+        "todos";
+
 
     opcionInicial.textContent =
         textoInicial;
+
 
     select.appendChild(opcionInicial);
 
@@ -437,9 +488,14 @@ function llenarSelect(id, valores, textoInicial) {
         const opcion =
             document.createElement("option");
 
-        opcion.value = valor;
 
-        opcion.textContent = valor;
+        opcion.value =
+            valor;
+
+
+        opcion.textContent =
+            valor;
+
 
         select.appendChild(opcion);
 
@@ -510,9 +566,12 @@ function actualizarKPIs(filas) {
 
     filas.forEach(fila => {
 
-        ventas += fila.VrRem;
+        ventas +=
+            Number(fila.VrRem) || 0;
 
-        costos += fila.Costo;
+
+        costos +=
+            Number(fila.Costo) || 0;
 
     });
 
@@ -527,19 +586,26 @@ function actualizarKPIs(filas) {
             : 0;
 
 
-    document.getElementById("ventas")
-        .textContent = formatoMoneda(ventas);
+    document
+        .getElementById("ventas")
+        .textContent =
+        formatoMoneda(ventas);
 
 
-    document.getElementById("costos")
-        .textContent = formatoMoneda(costos);
+    document
+        .getElementById("costos")
+        .textContent =
+        formatoMoneda(costos);
 
 
-    document.getElementById("utilidad")
-        .textContent = formatoMoneda(utilidad);
+    document
+        .getElementById("utilidad")
+        .textContent =
+        formatoMoneda(utilidad);
 
 
-    document.getElementById("margen")
+    document
+        .getElementById("margen")
         .textContent =
         formatoPorcentaje(margen);
 
@@ -577,15 +643,21 @@ function agrupar(filas, campo) {
 
 
         resultado[clave].ventas +=
-            fila.VrRem;
+            Number(fila.VrRem) || 0;
 
 
         resultado[clave].costos +=
-            fila.Costo;
+            Number(fila.Costo) || 0;
 
 
         resultado[clave].utilidad +=
-            fila.VrRem - fila.Costo;
+            (
+                Number(fila.VrRem) || 0
+            )
+            -
+            (
+                Number(fila.Costo) || 0
+            );
 
     });
 
@@ -626,11 +698,15 @@ function actualizarGraficoClientes(filas) {
 
 
     const etiquetas =
-        datosOrdenados.map(x => x.nombre);
+        datosOrdenados.map(
+            x => x.nombre
+        );
 
 
     const valores =
-        datosOrdenados.map(x => x.utilidad);
+        datosOrdenados.map(
+            x => x.utilidad
+        );
 
 
     if (graficoClientes) {
@@ -644,7 +720,9 @@ function actualizarGraficoClientes(filas) {
         new Chart(
 
             document
-                .getElementById("graficoClientes"),
+                .getElementById(
+                    "graficoClientes"
+                ),
 
             {
 
@@ -725,7 +803,9 @@ function actualizarGraficoLineas(filas) {
         new Chart(
 
             document
-                .getElementById("graficoLineas"),
+                .getElementById(
+                    "graficoLineas"
+                ),
 
             {
 
@@ -733,7 +813,8 @@ function actualizarGraficoLineas(filas) {
 
                 data: {
 
-                    labels: etiquetas,
+                    labels:
+                        etiquetas,
 
                     datasets: [
 
@@ -793,11 +874,18 @@ function actualizarGraficoMensual(filas) {
 
 
         agrupado[mes].ventas +=
-            fila.VrRem;
+            Number(fila.VrRem) || 0;
 
 
         agrupado[mes].utilidad +=
-            fila.VrRem - fila.Costo;
+
+            (
+                Number(fila.VrRem) || 0
+            )
+            -
+            (
+                Number(fila.Costo) || 0
+            );
 
     });
 
@@ -835,7 +923,9 @@ function actualizarGraficoMensual(filas) {
         new Chart(
 
             document
-                .getElementById("graficoMensual"),
+                .getElementById(
+                    "graficoMensual"
+                ),
 
             {
 
@@ -843,10 +933,11 @@ function actualizarGraficoMensual(filas) {
 
                 data: {
 
-                    labels: meses.map(
-                        mes =>
-                            "Mes " + mes
-                    ),
+                    labels:
+                        meses.map(
+                            mes =>
+                                "Mes " + mes
+                        ),
 
                     datasets: [
 
@@ -918,11 +1009,15 @@ function actualizarGraficoVendedores(filas) {
 
 
     const etiquetas =
-        datosOrdenados.map(x => x.nombre);
+        datosOrdenados.map(
+            x => x.nombre
+        );
 
 
     const valores =
-        datosOrdenados.map(x => x.utilidad);
+        datosOrdenados.map(
+            x => x.utilidad
+        );
 
 
     if (graficoVendedores) {
@@ -936,7 +1031,9 @@ function actualizarGraficoVendedores(filas) {
         new Chart(
 
             document
-                .getElementById("graficoVendedores"),
+                .getElementById(
+                    "graficoVendedores"
+                ),
 
             {
 
@@ -944,7 +1041,8 @@ function actualizarGraficoVendedores(filas) {
 
                 data: {
 
-                    labels: etiquetas,
+                    labels:
+                        etiquetas,
 
                     datasets: [
 
@@ -992,8 +1090,10 @@ function actualizarTablaProductos(filas) {
 
                 const margen =
                     valores.ventas !== 0
+
                         ? valores.utilidad /
                           valores.ventas
+
                         : 0;
 
 
@@ -1039,15 +1139,25 @@ function actualizarTablaProductos(filas) {
 
         fila.innerHTML = `
 
-            <td>${producto.nombre}</td>
+            <td>
+                ${producto.nombre}
+            </td>
 
-            <td>${formatoMoneda(producto.ventas)}</td>
+            <td>
+                ${formatoMoneda(producto.ventas)}
+            </td>
 
-            <td>${formatoMoneda(producto.costos)}</td>
+            <td>
+                ${formatoMoneda(producto.costos)}
+            </td>
 
-            <td>${formatoMoneda(producto.utilidad)}</td>
+            <td>
+                ${formatoMoneda(producto.utilidad)}
+            </td>
 
-            <td>${formatoPorcentaje(producto.margen)}</td>
+            <td>
+                ${formatoPorcentaje(producto.margen)}
+            </td>
 
         `;
 
@@ -1110,8 +1220,10 @@ function formatoPorcentaje(valor) {
 
     return (
 
-        (valor * 100)
-            .toFixed(1)
+        (
+            valor * 100
+        )
+        .toFixed(1)
 
         + "%"
 
