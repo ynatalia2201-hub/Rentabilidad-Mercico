@@ -1,3 +1,7 @@
+// ============================================================
+// DASHBOARD DE RENTABILIDAD - MERCICO
+// ============================================================
+
 let datosOriginales = [];
 let datosFiltrados = [];
 
@@ -7,301 +11,674 @@ let graficoMensual = null;
 let graficoVendedores = null;
 
 
-// ======================================================
-// CARGAR ARCHIVO EXCEL
-// ======================================================
+// ============================================================
+// INICIO
+// ============================================================
 
-document
-    .getElementById("archivoExcel")
-    .addEventListener("change", cargarExcel);
+document.addEventListener("DOMContentLoaded", function () {
 
-
-function cargarExcel(event) {
-
-    const archivo = event.target.files[0];
-
-    const estado = document.getElementById("estadoArchivo");
+    const archivo =
+        document.getElementById("archivoExcel");
 
     if (!archivo) {
-        estado.textContent = "Ningún archivo cargado";
+        console.error(
+            "No se encontró el elemento archivoExcel"
+        );
         return;
     }
 
-    estado.textContent = "Leyendo archivo...";
+    archivo.addEventListener(
+        "change",
+        cargarExcel
+    );
 
-    const lector = new FileReader();
+    activarFiltros();
 
-    lector.onload = function(e) {
+});
 
-        try {
 
-            const datos = new Uint8Array(e.target.result);
+// ============================================================
+// CARGAR EXCEL
+// ============================================================
 
-            const libro = XLSX.read(datos, {
-                type: "array"
-            });
+function cargarExcel(event) {
 
-            if (!libro.SheetNames.length) {
-                throw new Error("El archivo no contiene hojas.");
-            }
+    const archivo =
+        event.target.files[0];
 
-            const nombreHoja = libro.SheetNames[0];
+    const estado =
+        document.getElementById(
+            "estadoArchivo"
+        );
 
-            const hoja = libro.Sheets[nombreHoja];
-
-            const filas = XLSX.utils.sheet_to_json(hoja, {
-                defval: ""
-            });
-
-            if (!filas.length) {
-                throw new Error(
-                    "La primera hoja del Excel no contiene información."
-                );
-            }
-
-            console.log("Columnas encontradas:", Object.keys(filas[0]));
-            console.log("Primera fila:", filas[0]);
-
-            datosOriginales = prepararDatos(filas);
-
-            if (!datosOriginales.length) {
-                throw new Error(
-                    "No se pudieron preparar los datos del Excel."
-                );
-            }
-
-            llenarFiltros();
-
-            actualizarDashboard();
-
-            estado.textContent =
-                "Archivo cargado correctamente: " +
-                datosOriginales.length +
-                " registros.";
-
-        }
-
-        catch (error) {
-
-            console.error(
-                "ERROR COMPLETO:",
-                error
-            );
-
-            estado.textContent =
-                "ERROR: " +
-                error.message;
-
-        }
-
-    };
-
-    lector.onerror = function() {
+    if (!archivo) {
 
         estado.textContent =
-            "No fue posible leer el archivo.";
+            "Ningún archivo cargado";
 
-    };
+        return;
+    }
 
-    lector.readAsArrayBuffer(archivo);
-}
+    estado.textContent =
+        "Leyendo archivo Excel...";
 
+    const lector =
+        new FileReader();
 
-// ======================================================
-// PREPARAR DATOS
-// ======================================================
+    lector.onload =
+        function (e) {
 
-function prepararDatos(filas) {
+            try {
 
-    return filas.map(function(fila) {
+                const datos =
+                    new Uint8Array(
+                        e.target.result
+                    );
 
-        const ventas = limpiarNumero(
-            fila["VrRem"] ??
-            fila["Vr Rem"] ??
-            fila["VRREM"] ??
-            fila["Valor Remisión"] ??
-            fila["Valor Remision"] ??
-            0
-        );
+                const libro =
+                    XLSX.read(
+                        datos,
+                        {
+                            type: "array",
+                            cellDates: true
+                        }
+                    );
 
-        const costo = limpiarNumero(
-            fila["Costo"] ??
-            fila["COSTO"] ??
-            fila["Costos"] ??
-            0
-        );
+                if (
+                    !libro.SheetNames ||
+                    !libro.SheetNames.length
+                ) {
 
-        const utilidadExcel = limpiarNumero(
-            fila["Utilidad"] ?? 0
-        );
+                    throw new Error(
+                        "El Excel no contiene hojas."
+                    );
 
-        const utilidad =
-            ventas - costo;
+                }
 
-        const margen =
-            ventas !== 0
-                ? utilidad / ventas
-                : 0;
+                const nombreHoja =
+                    libro.SheetNames[0];
 
-        return {
+                const hoja =
+                    libro.Sheets[nombreHoja];
 
-            vendedor:
-                limpiarTexto(
-                    fila["Vendedor"]
-                ),
+                const filas =
+                    XLSX.utils.sheet_to_json(
+                        hoja,
+                        {
+                            defval: "",
+                            raw: true
+                        }
+                    );
 
-            cliente:
-                limpiarTexto(
-                    fila["Cliente"]
-                ),
+                if (!filas.length) {
 
-            remision:
-                limpiarTexto(
-                    fila["Remision"]
-                ),
+                    throw new Error(
+                        "La hoja está vacía."
+                    );
 
-            fecha:
-                fila["Fecha"],
+                }
 
-            pedido:
-                limpiarTexto(
-                    fila["Pedid"]
-                ),
+                console.log(
+                    "HOJA:",
+                    nombreHoja
+                );
 
-            linea:
-                limpiarTexto(
-                    fila["Linea"]
-                ),
+                console.log(
+                    "COLUMNAS ORIGINALES:",
+                    Object.keys(filas[0])
+                );
 
-            codigo:
-                limpiarTexto(
-                    fila["Cod"]
-                ),
+                console.log(
+                    "PRIMERA FILA:",
+                    filas[0]
+                );
 
-            llave:
-                limpiarTexto(
-                    fila["Llave1"]
-                ),
+                datosOriginales =
+                    prepararDatos(
+                        filas
+                    );
 
-            producto:
-                limpiarTexto(
-                    fila["Producto"]
-                ),
+                if (
+                    !datosOriginales.length
+                ) {
 
-            cantidad:
-                limpiarNumero(
-                    fila["Cant"]
-                ),
+                    throw new Error(
+                        "No se pudieron preparar los registros."
+                    );
 
-            mes:
-                obtenerMes(
-                    fila["Mes"],
-                    fila["Fecha"]
-                ),
+                }
 
-            factura:
-                limpiarTexto(
-                    fila["Factura"]
-                ),
+                console.log(
+                    "DATOS PREPARADOS:",
+                    datosOriginales
+                );
 
-            valorVenta:
-                ventas,
+                console.log(
+                    "PRIMER REGISTRO PREPARADO:",
+                    datosOriginales[0]
+                );
 
-            costo:
-                costo,
+                llenarFiltros();
 
-            utilidad:
-                utilidad,
+                actualizarDashboard();
 
-            utilidadExcel:
-                utilidadExcel,
+                estado.textContent =
+                    "Archivo cargado correctamente. " +
+                    datosOriginales.length +
+                    " registros.";
 
-            margen:
-                margen,
+            }
 
-            anio:
-                obtenerAnio(
-                    fila["Año"],
-                    fila["Fecha"]
-                )
+            catch (error) {
+
+                console.error(
+                    "ERROR:",
+                    error
+                );
+
+                estado.textContent =
+                    "ERROR: " +
+                    error.message;
+
+            }
 
         };
 
-    });
+
+    lector.onerror =
+        function () {
+
+            estado.textContent =
+                "No se pudo leer el archivo.";
+
+        };
+
+
+    lector.readAsArrayBuffer(
+        archivo
+    );
 
 }
 
 
-// ======================================================
-// LIMPIAR TEXTO
-// ======================================================
+// ============================================================
+// PREPARAR DATOS
+// ============================================================
 
-function limpiarTexto(valor) {
+function prepararDatos(filas) {
+
+    return filas.map(
+        function (fila) {
+
+            const columnas =
+                crearMapaColumnas(
+                    fila
+                );
+
+
+            // -----------------------------
+            // VENTAS
+            // -----------------------------
+
+            const ventas =
+                obtenerNumeroPorColumnas(
+                    columnas,
+                    [
+                        "vrrem",
+                        "valorremision",
+                        "valorremision",
+                        "valorventa",
+                        "ventas",
+                        "venta",
+                        "vrventa"
+                    ]
+                );
+
+
+            // -----------------------------
+            // COSTO
+            // -----------------------------
+
+            const costo =
+                obtenerNumeroPorColumnas(
+                    columnas,
+                    [
+                        "costo",
+                        "costos",
+                        "costototal",
+                        "costoproducto"
+                    ]
+                );
+
+
+            // -----------------------------
+            // UTILIDAD
+            // -----------------------------
+
+            let utilidad =
+                obtenerNumeroPorColumnas(
+                    columnas,
+                    [
+                        "utilidad",
+                        "ganancia",
+                        "utilidadbruta"
+                    ]
+                );
+
+
+            // Si no existe utilidad,
+            // la calculamos.
+
+            if (
+                utilidad === 0 &&
+                (
+                    ventas !== 0 ||
+                    costo !== 0
+                )
+            ) {
+
+                utilidad =
+                    ventas -
+                    costo;
+
+            }
+
+
+            // -----------------------------
+            // MARGEN
+            // -----------------------------
+
+            let margen =
+                obtenerNumeroPorColumnas(
+                    columnas,
+                    [
+                        "margen",
+                        "margenrentabilidad",
+                        "rentabilidad"
+                    ]
+                );
+
+
+            // Si el margen viene como 61,
+            // convertirlo a 0.61
+
+            if (
+                Math.abs(margen) > 1
+            ) {
+
+                margen =
+                    margen / 100;
+
+            }
+
+
+            // Si no existe margen,
+            // calcularlo.
+
+            if (
+                margen === 0 &&
+                ventas !== 0
+            ) {
+
+                margen =
+                    utilidad /
+                    ventas;
+
+            }
+
+
+            return {
+
+                vendedor:
+                    obtenerTexto(
+                        columnas,
+                        [
+                            "vendedor",
+                            "asesor",
+                            "comercial"
+                        ]
+                    ),
+
+                cliente:
+                    obtenerTexto(
+                        columnas,
+                        [
+                            "cliente",
+                            "nombrecliente"
+                        ]
+                    ),
+
+                remision:
+                    obtenerTexto(
+                        columnas,
+                        [
+                            "remision",
+                            "remisión",
+                            "rem"
+                        ]
+                    ),
+
+                fecha:
+                    obtenerValor(
+                        columnas,
+                        [
+                            "fecha",
+                            "fecharemision"
+                        ]
+                    ),
+
+                pedido:
+                    obtenerTexto(
+                        columnas,
+                        [
+                            "pedid",
+                            "pedido",
+                            "numpedido"
+                        ]
+                    ),
+
+                linea:
+                    obtenerTexto(
+                        columnas,
+                        [
+                            "linea",
+                            "línea"
+                        ]
+                    ),
+
+                codigo:
+                    obtenerTexto(
+                        columnas,
+                        [
+                            "cod",
+                            "codigo",
+                            "código"
+                        ]
+                    ),
+
+                llave:
+                    obtenerTexto(
+                        columnas,
+                        [
+                            "llave1",
+                            "llave"
+                        ]
+                    ),
+
+                producto:
+                    obtenerTexto(
+                        columnas,
+                        [
+                            "producto",
+                            "nombreproducto"
+                        ]
+                    ),
+
+                cantidad:
+                    obtenerNumeroPorColumnas(
+                        columnas,
+                        [
+                            "cant",
+                            "cantidad"
+                        ]
+                    ),
+
+                mes:
+                    obtenerMes(
+                        columnas
+                    ),
+
+                factura:
+                    obtenerTexto(
+                        columnas,
+                        [
+                            "factura",
+                            "numfactura"
+                        ]
+                    ),
+
+                valorVenta:
+                    ventas,
+
+                costo:
+                    costo,
+
+                utilidad:
+                    utilidad,
+
+                margen:
+                    margen,
+
+                anio:
+                    obtenerAnio(
+                        columnas
+                    )
+
+            };
+
+        }
+    );
+
+}
+
+
+// ============================================================
+// MAPEAR COLUMNAS
+// ============================================================
+
+function crearMapaColumnas(fila) {
+
+    const mapa = {};
+
+    Object.keys(fila)
+        .forEach(
+            function (nombreOriginal) {
+
+                const nombreNormalizado =
+                    normalizarNombre(
+                        nombreOriginal
+                    );
+
+                mapa[
+                    nombreNormalizado
+                ] = fila[
+                    nombreOriginal
+                ];
+
+            }
+        );
+
+    return mapa;
+
+}
+
+
+// ============================================================
+// NORMALIZAR NOMBRES
+// ============================================================
+
+function normalizarNombre(
+    texto
+) {
+
+    return String(
+        texto || ""
+    )
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(
+            /[\u0300-\u036f]/g,
+            ""
+        )
+        .replace(
+            /[^a-z0-9]/g,
+            ""
+        );
+
+}
+
+
+// ============================================================
+// OBTENER VALOR
+// ============================================================
+
+function obtenerValor(
+    columnas,
+    posibles
+) {
+
+    for (
+        let i = 0;
+        i < posibles.length;
+        i++
+    ) {
+
+        const clave =
+            normalizarNombre(
+                posibles[i]
+            );
+
+        if (
+            Object.prototype.hasOwnProperty
+                .call(
+                    columnas,
+                    clave
+                )
+        ) {
+
+            return columnas[
+                clave
+            ];
+
+        }
+
+    }
+
+    return "";
+
+}
+
+
+// ============================================================
+// OBTENER TEXTO
+// ============================================================
+
+function obtenerTexto(
+    columnas,
+    posibles
+) {
+
+    const valor =
+        obtenerValor(
+            columnas,
+            posibles
+        );
 
     if (
         valor === null ||
         valor === undefined
     ) {
+
         return "";
+
     }
 
-    return String(valor).trim();
+    return String(
+        valor
+    ).trim();
 
 }
 
 
-// ======================================================
-// LIMPIAR NÚMEROS
-// ======================================================
+// ============================================================
+// OBTENER NÚMERO
+// ============================================================
 
-function limpiarNumero(valor) {
+function obtenerNumeroPorColumnas(
+    columnas,
+    posibles
+) {
+
+    const valor =
+        obtenerValor(
+            columnas,
+            posibles
+        );
+
+    return limpiarNumero(
+        valor
+    );
+
+}
+
+
+// ============================================================
+// LIMPIAR NÚMEROS
+// ============================================================
+
+function limpiarNumero(
+    valor
+) {
 
     if (
         valor === null ||
         valor === undefined ||
         valor === ""
     ) {
+
         return 0;
+
     }
 
-    if (typeof valor === "number") {
-        return Number.isFinite(valor)
+
+    if (
+        typeof valor === "number"
+    ) {
+
+        return Number.isFinite(
+            valor
+        )
             ? valor
             : 0;
+
     }
+
 
     let texto =
         String(valor)
-        .trim()
-        .replace(/\s/g, "");
+            .trim();
+
 
     if (!texto) {
         return 0;
     }
 
-    // Elimina símbolos de moneda
-    texto = texto.replace(
-        /[$€£]/g,
-        ""
-    );
 
-    // Caso colombiano:
+    // Eliminar espacios
+
+    texto =
+        texto.replace(
+            /\s/g,
+            ""
+        );
+
+
+    // Eliminar monedas
+
+    texto =
+        texto.replace(
+            /[$€£COP]/gi,
+            ""
+        );
+
+
+    // ------------------------------------
+    // CASO COLOMBIANO
+    //
     // 9.460.000
     // 3.691.869
-    if (
-        texto.includes(".") &&
-        texto.includes(",")
-    ) {
+    // ------------------------------------
 
-        texto =
-            texto
-            .replace(/\./g, "")
-            .replace(",", ".");
-
-    }
-
-    // Caso:
-    // 9.460.000
     if (
         texto.includes(".") &&
         !texto.includes(",")
@@ -310,31 +687,69 @@ function limpiarNumero(valor) {
         const partes =
             texto.split(".");
 
-        const parecenMiles =
-            partes.length > 2 ||
-            (
-                partes.length === 2 &&
-                partes[1].length === 3
-            );
 
-        if (parecenMiles) {
+        if (
+            partes.length > 2
+        ) {
 
             texto =
-                texto.replace(/\./g, "");
+                texto.replace(
+                    /\./g,
+                    ""
+                );
+
+        }
+
+        else if (
+            partes.length === 2 &&
+            partes[1].length === 3
+        ) {
+
+            texto =
+                texto.replace(
+                    /\./g,
+                    ""
+                );
 
         }
 
     }
 
-    // Caso:
-    // 9460000,50
+
+    // ------------------------------------
+    // 9.460.000,50
+    // ------------------------------------
+
     if (
-        texto.includes(",") &&
-        !texto.includes(".")
+        texto.includes(".") &&
+        texto.includes(",")
+    ) {
+
+        texto =
+            texto
+                .replace(
+                    /\./g,
+                    ""
+                )
+                .replace(
+                    ",",
+                    "."
+                );
+
+    }
+
+
+    // ------------------------------------
+    // 9460000,50
+    // ------------------------------------
+
+    else if (
+        texto.includes(",")
     ) {
 
         const partes =
             texto.split(",");
+
 
         if (
             partes.length === 2 &&
@@ -342,171 +757,331 @@ function limpiarNumero(valor) {
         ) {
 
             texto =
-                texto.replace(",", ".");
+                texto.replace(
+                    ",",
+                    "."
+                );
 
-        } else {
+        }
+
+        else {
 
             texto =
-                texto.replace(/,/g, "");
+                texto.replace(
+                    /,/g,
+                    ""
+                );
 
         }
 
     }
 
-    // Dejar solamente números,
-    // punto y signo negativo
+
+    // Eliminar caracteres restantes
+
     texto =
         texto.replace(
             /[^0-9.-]/g,
             ""
         );
 
+
     const numero =
         Number(texto);
 
-    return Number.isFinite(numero)
-        ? numero
-        : 0;
+
+    if (
+        !Number.isFinite(numero)
+    ) {
+
+        return 0;
+
+    }
+
+
+    return numero;
 
 }
 
 
-// ======================================================
+// ============================================================
 // OBTENER AÑO
-// ======================================================
+// ============================================================
 
-function obtenerAnio(valor, fecha) {
+function obtenerAnio(
+    columnas
+) {
+
+    const valor =
+        obtenerValor(
+            columnas,
+            [
+                "ano",
+                "año",
+                "year"
+            ]
+        );
+
 
     if (
-        valor !== undefined &&
+        valor !== "" &&
         valor !== null &&
-        valor !== ""
+        valor !== undefined
     ) {
 
         const numero =
             Number(valor);
 
         if (
-            Number.isFinite(numero) &&
-            numero > 1900
+            numero >= 1900 &&
+            numero <= 2100
         ) {
+
             return numero;
+
         }
 
     }
+
+
+    const fecha =
+        obtenerValor(
+            columnas,
+            [
+                "fecha",
+                "fecharemision"
+            ]
+        );
+
+
+    const fechaConvertida =
+        convertirFecha(
+            fecha
+        );
+
 
     if (
-        fecha instanceof Date &&
-        !isNaN(fecha)
+        fechaConvertida
     ) {
 
-        return fecha.getFullYear();
+        return fechaConvertida.getFullYear();
 
     }
 
-    if (typeof fecha === "number") {
-
-        const fechaExcel =
-            XLSX.SSF.parse_date_code(
-                fecha
-            );
-
-        if (fechaExcel) {
-            return fechaExcel.y;
-        }
-
-    }
-
-    const texto =
-        String(fecha || "");
-
-    const coincidencia =
-        texto.match(
-            /(20\d{2})/
-        );
-
-    if (coincidencia) {
-        return Number(
-            coincidencia[1]
-        );
-    }
 
     return 2026;
 
 }
 
 
-// ======================================================
+// ============================================================
 // OBTENER MES
-// ======================================================
+// ============================================================
 
-function obtenerMes(valor, fecha) {
+function obtenerMes(
+    columnas
+) {
+
+    const valor =
+        obtenerValor(
+            columnas,
+            [
+                "mes"
+            ]
+        );
+
 
     if (
-        valor !== undefined &&
+        valor !== "" &&
         valor !== null &&
-        valor !== ""
+        valor !== undefined
     ) {
 
         const numero =
             Number(valor);
 
         if (
-            Number.isFinite(numero) &&
             numero >= 1 &&
             numero <= 12
         ) {
+
             return numero;
+
         }
 
     }
+
+
+    const fecha =
+        obtenerValor(
+            columnas,
+            [
+                "fecha",
+                "fecharemision"
+            ]
+        );
+
+
+    const fechaConvertida =
+        convertirFecha(
+            fecha
+        );
+
 
     if (
-        fecha instanceof Date &&
-        !isNaN(fecha)
+        fechaConvertida
     ) {
 
-        return fecha.getMonth() + 1;
-
-    }
-
-    if (typeof fecha === "number") {
-
-        const fechaExcel =
-            XLSX.SSF.parse_date_code(
-                fecha
-            );
-
-        if (fechaExcel) {
-            return fechaExcel.m;
-        }
-
-    }
-
-    const texto =
-        String(fecha || "");
-
-    const coincidencia =
-        texto.match(
-            /(\d{1,2})[\/\-](\d{1,2})[\/\-](20\d{2})/
-        );
-
-    if (coincidencia) {
-
-        return Number(
-            coincidencia[2]
+        return (
+            fechaConvertida.getMonth()
+            + 1
         );
 
     }
+
 
     return 1;
 
 }
 
 
-// ======================================================
+// ============================================================
+// CONVERTIR FECHA
+// ============================================================
+
+function convertirFecha(
+    valor
+) {
+
+    if (
+        valor instanceof Date &&
+        !isNaN(valor)
+    ) {
+
+        return valor;
+
+    }
+
+
+    if (
+        typeof valor === "number"
+    ) {
+
+        try {
+
+            const fecha =
+                XLSX.SSF.parse_date_code(
+                    valor
+                );
+
+            if (fecha) {
+
+                return new Date(
+                    fecha.y,
+                    fecha.m - 1,
+                    fecha.d
+                );
+
+            }
+
+        }
+
+        catch (error) {
+
+            return null;
+
+        }
+
+    }
+
+
+    if (!valor) {
+        return null;
+    }
+
+
+    const texto =
+        String(valor)
+            .trim();
+
+
+    // dd/mm/yyyy
+
+    let partes =
+        texto.match(
+            /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/
+        );
+
+
+    if (partes) {
+
+        return new Date(
+            Number(partes[3]),
+            Number(partes[2]) - 1,
+            Number(partes[1])
+        );
+
+    }
+
+
+    const fecha =
+        new Date(texto);
+
+
+    if (!isNaN(fecha)) {
+
+        return fecha;
+
+    }
+
+
+    return null;
+
+}
+
+
+// ============================================================
+// FILTROS
+// ============================================================
+
+function activarFiltros() {
+
+    const filtros = [
+        "filtroAnio",
+        "filtroMes",
+        "filtroVendedor",
+        "filtroCliente",
+        "filtroLinea",
+        "filtroProducto"
+    ];
+
+
+    filtros.forEach(
+        function (id) {
+
+            const elemento =
+                document.getElementById(
+                    id
+                );
+
+            if (elemento) {
+
+                elemento.addEventListener(
+                    "change",
+                    actualizarDashboard
+                );
+
+            }
+
+        }
+    );
+
+}
+
+
+// ============================================================
 // LLENAR FILTROS
-// ======================================================
+// ============================================================
 
 function llenarFiltros() {
 
@@ -518,6 +1093,7 @@ function llenarFiltros() {
         "Todos"
     );
 
+
     llenarSelect(
         "filtroMes",
         datosOriginales.map(
@@ -525,6 +1101,7 @@ function llenarFiltros() {
         ),
         "Todos"
     );
+
 
     llenarSelect(
         "filtroVendedor",
@@ -534,6 +1111,7 @@ function llenarFiltros() {
         "Todos"
     );
 
+
     llenarSelect(
         "filtroCliente",
         datosOriginales.map(
@@ -542,6 +1120,7 @@ function llenarFiltros() {
         "Todos"
     );
 
+
     llenarSelect(
         "filtroLinea",
         datosOriginales.map(
@@ -549,6 +1128,7 @@ function llenarFiltros() {
         ),
         "Todas"
     );
+
 
     llenarSelect(
         "filtroProducto",
@@ -561,9 +1141,9 @@ function llenarFiltros() {
 }
 
 
-// ======================================================
-// CREAR OPCIONES DE SELECT
-// ======================================================
+// ============================================================
+// CREAR SELECT
+// ============================================================
 
 function llenarSelect(
     id,
@@ -572,58 +1152,87 @@ function llenarSelect(
 ) {
 
     const select =
-        document.getElementById(id);
+        document.getElementById(
+            id
+        );
+
 
     if (!select) {
         return;
     }
 
+
     select.innerHTML = "";
 
-    const opcionTodos =
-        document.createElement("option");
 
-    opcionTodos.value = "todos";
-    opcionTodos.textContent = textoTodos;
+    const opcionTodos =
+        document.createElement(
+            "option"
+        );
+
+
+    opcionTodos.value =
+        "todos";
+
+
+    opcionTodos.textContent =
+        textoTodos;
+
 
     select.appendChild(
         opcionTodos
     );
 
-    const valoresUnicos =
-        [...new Set(
-            valores
-                .filter(
-                    v =>
-                        v !== null &&
-                        v !== undefined &&
-                        v !== ""
-                )
-                .map(
-                    v => String(v)
-                )
-        )]
-        .sort(
-            (a, b) =>
-                a.localeCompare(
-                    b,
-                    "es",
-                    {
-                        numeric: true
-                    }
-                )
-        );
 
-    valoresUnicos.forEach(
-        function(valor) {
+    const unicos =
+        [
+            ...new Set(
+                valores
+                    .filter(
+                        v =>
+                            v !== "" &&
+                            v !== null &&
+                            v !== undefined
+                    )
+                    .map(
+                        v =>
+                            String(v)
+                    )
+            )
+        ];
+
+
+    unicos.sort(
+        function (a, b) {
+
+            return a.localeCompare(
+                b,
+                "es",
+                {
+                    numeric: true
+                }
+            );
+
+        }
+    );
+
+
+    unicos.forEach(
+        function (valor) {
 
             const opcion =
                 document.createElement(
                     "option"
                 );
 
-            opcion.value = valor;
-            opcion.textContent = valor;
+
+            opcion.value =
+                valor;
+
+
+            opcion.textContent =
+                valor;
+
 
             select.appendChild(
                 opcion
@@ -635,79 +1244,50 @@ function llenarSelect(
 }
 
 
-// ======================================================
-// EVENTOS DE FILTROS
-// ======================================================
-
-[
-    "filtroAnio",
-    "filtroMes",
-    "filtroVendedor",
-    "filtroCliente",
-    "filtroLinea",
-    "filtroProducto"
-]
-.forEach(
-    function(id) {
-
-        const elemento =
-            document.getElementById(id);
-
-        if (elemento) {
-
-            elemento.addEventListener(
-                "change",
-                actualizarDashboard
-            );
-
-        }
-
-    }
-);
-
-
-// ======================================================
+// ============================================================
 // ACTUALIZAR DASHBOARD
-// ======================================================
+// ============================================================
 
 function actualizarDashboard() {
 
     datosFiltrados =
         datosOriginales.filter(
-            function(dato) {
+            function (dato) {
 
-                return coincideFiltro(
-                    dato.anio,
-                    "filtroAnio"
-                )
-                &&
-                coincideFiltro(
-                    dato.mes,
-                    "filtroMes"
-                )
-                &&
-                coincideFiltro(
-                    dato.vendedor,
-                    "filtroVendedor"
-                )
-                &&
-                coincideFiltro(
-                    dato.cliente,
-                    "filtroCliente"
-                )
-                &&
-                coincideFiltro(
-                    dato.linea,
-                    "filtroLinea"
-                )
-                &&
-                coincideFiltro(
-                    dato.producto,
-                    "filtroProducto"
-                );
+                return
+                    coincideFiltro(
+                        dato.anio,
+                        "filtroAnio"
+                    )
+                    &&
+                    coincideFiltro(
+                        dato.mes,
+                        "filtroMes"
+                    )
+                    &&
+                    coincideFiltro(
+                        dato.vendedor,
+                        "filtroVendedor"
+                    )
+                    &&
+                    coincideFiltro(
+                        dato.cliente,
+                        "filtroCliente"
+                    )
+                    &&
+                    coincideFiltro(
+                        dato.linea,
+                        "filtroLinea"
+                    )
+                    &&
+                    coincideFiltro(
+                        dato.producto,
+                        "filtroProducto"
+                    );
 
             }
         );
+
 
     actualizarKPIs();
 
@@ -718,29 +1298,34 @@ function actualizarDashboard() {
 }
 
 
-// ======================================================
-// VALIDAR FILTROS
-// ======================================================
+// ============================================================
+// COINCIDENCIA FILTRO
+// ============================================================
 
 function coincideFiltro(
     valor,
-    idFiltro
+    id
 ) {
 
     const filtro =
         document.getElementById(
-            idFiltro
+            id
         );
+
 
     if (!filtro) {
         return true;
     }
 
+
     if (
         filtro.value === "todos"
     ) {
+
         return true;
+
     }
+
 
     return String(valor) ===
         String(filtro.value);
@@ -748,9 +1333,9 @@ function coincideFiltro(
 }
 
 
-// ======================================================
-// ACTUALIZAR KPIs
-// ======================================================
+// ============================================================
+// KPIs
+// ============================================================
 
 function actualizarKPIs() {
 
@@ -758,52 +1343,168 @@ function actualizarKPIs() {
     let costos = 0;
     let utilidad = 0;
 
+
     datosFiltrados.forEach(
-        function(dato) {
+        function (dato) {
 
             ventas +=
-                Number(dato.valorVenta) || 0;
+                Number(
+                    dato.valorVenta
+                ) || 0;
+
 
             costos +=
-                Number(dato.costo) || 0;
+                Number(
+                    dato.costo
+                ) || 0;
+
 
             utilidad +=
-                Number(dato.utilidad) || 0;
+                Number(
+                    dato.utilidad
+                ) || 0;
 
         }
     );
+
 
     const margen =
         ventas !== 0
             ? utilidad / ventas
             : 0;
 
-    document.getElementById(
-        "ventas"
-    ).textContent =
-        formatoMoneda(ventas);
 
-    document.getElementById(
-        "costos"
-    ).textContent =
-        formatoMoneda(costos);
+    const elementoVentas =
+        document.getElementById(
+            "ventas"
+        );
 
-    document.getElementById(
-        "utilidad"
-    ).textContent =
-        formatoMoneda(utilidad);
 
-    document.getElementById(
-        "margen"
-    ).textContent =
-        formatoPorcentaje(margen);
+    const elementoCostos =
+        document.getElementById(
+            "costos"
+        );
+
+
+    const elementoUtilidad =
+        document.getElementById(
+            "utilidad"
+        );
+
+
+    const elementoMargen =
+        document.getElementById(
+            "margen"
+        );
+
+
+    if (elementoVentas) {
+
+        elementoVentas.textContent =
+            formatoMoneda(
+                ventas
+            );
+
+    }
+
+
+    if (elementoCostos) {
+
+        elementoCostos.textContent =
+            formatoMoneda(
+                costos
+            );
+
+    }
+
+
+    if (elementoUtilidad) {
+
+        elementoUtilidad.textContent =
+            formatoMoneda(
+                utilidad
+            );
+
+    }
+
+
+    if (elementoMargen) {
+
+        elementoMargen.textContent =
+            formatoPorcentaje(
+                margen
+            );
+
+    }
 
 }
 
 
-// ======================================================
+// ============================================================
+// AGRUPAR
+// ============================================================
+
+function agrupar(
+    campo
+) {
+
+    const resultado = {};
+
+
+    datosFiltrados.forEach(
+        function (dato) {
+
+            const clave =
+                dato[campo] ||
+                "Sin información";
+
+
+            if (
+                !resultado[clave]
+            ) {
+
+                resultado[clave] = {
+
+                    ventas: 0,
+
+                    costos: 0,
+
+                    utilidad: 0
+
+                };
+
+            }
+
+
+            resultado[clave].ventas +=
+                Number(
+                    dato.valorVenta
+                ) || 0;
+
+
+            resultado[clave].costos +=
+                Number(
+                    dato.costo
+                ) || 0;
+
+
+            resultado[clave].utilidad +=
+                Number(
+                    dato.utilidad
+                ) || 0;
+
+        }
+    );
+
+
+    return resultado;
+
+}
+
+
+// ============================================================
 // GRÁFICOS
-// ======================================================
+// ============================================================
 
 function actualizarGraficos() {
 
@@ -818,60 +1519,9 @@ function actualizarGraficos() {
 }
 
 
-// ======================================================
-// AGRUPAR DATOS
-// ======================================================
-
-function agrupar(
-    campo,
-    tipo = "utilidad"
-) {
-
-    const resultado = {};
-
-    datosFiltrados.forEach(
-        function(dato) {
-
-            const clave =
-                dato[campo] ||
-                "Sin información";
-
-            if (!resultado[clave]) {
-
-                resultado[clave] = {
-                    ventas: 0,
-                    costos: 0,
-                    utilidad: 0
-                };
-
-            }
-
-            resultado[clave].ventas +=
-                Number(
-                    dato.valorVenta
-                ) || 0;
-
-            resultado[clave].costos +=
-                Number(
-                    dato.costo
-                ) || 0;
-
-            resultado[clave].utilidad +=
-                Number(
-                    dato.utilidad
-                ) || 0;
-
-        }
-    );
-
-    return resultado;
-
-}
-
-
-// ======================================================
-// GRÁFICO CLIENTES
-// ======================================================
+// ============================================================
+// CLIENTES
+// ============================================================
 
 function crearGraficoClientes() {
 
@@ -880,52 +1530,69 @@ function crearGraficoClientes() {
             "graficoClientes"
         );
 
+
     if (!canvas) {
         return;
     }
 
-    const agrupado =
-        agrupar("cliente");
+
+    const datos =
+        agrupar(
+            "cliente"
+        );
+
 
     const elementos =
-        Object.entries(agrupado)
+        Object.entries(
+            datos
+        )
         .sort(
             (a, b) =>
                 b[1].utilidad -
                 a[1].utilidad
         )
-        .slice(0, 15);
-
-    const etiquetas =
-        elementos.map(
-            x => x[0]
+        .slice(
+            0,
+            15
         );
 
-    const valores =
-        elementos.map(
-            x => x[1].utilidad
-        );
 
     if (graficoClientes) {
+
         graficoClientes.destroy();
+
     }
+
 
     graficoClientes =
         new Chart(
             canvas,
             {
+
                 type: "bar",
 
                 data: {
 
-                    labels: etiquetas,
+                    labels:
+                        elementos.map(
+                            x => x[0]
+                        ),
 
                     datasets: [
-                        {
-                            label: "Utilidad",
 
-                            data: valores
+                        {
+
+                            label:
+                                "Utilidad",
+
+                            data:
+                                elementos.map(
+                                    x =>
+                                        x[1].utilidad
+                                )
+
                         }
+
                     ]
 
                 },
@@ -950,9 +1617,9 @@ function crearGraficoClientes() {
 }
 
 
-// ======================================================
-// GRÁFICO LÍNEAS
-// ======================================================
+// ============================================================
+// LÍNEAS
+// ============================================================
 
 function crearGraficoLineas() {
 
@@ -961,51 +1628,65 @@ function crearGraficoLineas() {
             "graficoLineas"
         );
 
+
     if (!canvas) {
         return;
     }
 
-    const agrupado =
-        agrupar("linea");
+
+    const datos =
+        agrupar(
+            "linea"
+        );
+
 
     const elementos =
-        Object.entries(agrupado)
+        Object.entries(
+            datos
+        )
         .sort(
             (a, b) =>
                 b[1].utilidad -
                 a[1].utilidad
         );
 
-    const etiquetas =
-        elementos.map(
-            x => x[0]
-        );
-
-    const valores =
-        elementos.map(
-            x => x[1].utilidad
-        );
 
     if (graficoLineas) {
+
         graficoLineas.destroy();
+
     }
+
 
     graficoLineas =
         new Chart(
             canvas,
             {
+
                 type: "bar",
 
                 data: {
 
-                    labels: etiquetas,
+                    labels:
+                        elementos.map(
+                            x => x[0]
+                        ),
 
                     datasets: [
-                        {
-                            label: "Utilidad",
 
-                            data: valores
+                        {
+
+                            label:
+                                "Utilidad",
+
+                            data:
+                                elementos.map(
+                                    x =>
+                                        x[1].utilidad
+                                )
+
                         }
+
                     ]
 
                 },
@@ -1030,9 +1711,9 @@ function crearGraficoLineas() {
 }
 
 
-// ======================================================
-// GRÁFICO MENSUAL
-// ======================================================
+// ============================================================
+// MENSUAL
+// ============================================================
 
 function crearGraficoMensual() {
 
@@ -1041,34 +1722,52 @@ function crearGraficoMensual() {
             "graficoMensual"
         );
 
+
     if (!canvas) {
         return;
     }
 
-    const agrupado = {};
 
-    for (
-        let mes = 1;
-        mes <= 12;
-        mes++
-    ) {
+    const meses =
+        [
+            "Enero",
+            "Febrero",
+            "Marzo",
+            "Abril",
+            "Mayo",
+            "Junio",
+            "Julio",
+            "Agosto",
+            "Septiembre",
+            "Octubre",
+            "Noviembre",
+            "Diciembre"
+        ];
 
-        agrupado[mes] = 0;
 
-    }
+    const valores =
+        new Array(
+            12
+        ).fill(0);
+
 
     datosFiltrados.forEach(
-        function(dato) {
+        function (dato) {
 
             const mes =
-                Number(dato.mes);
+                Number(
+                    dato.mes
+                );
+
 
             if (
                 mes >= 1 &&
                 mes <= 12
             ) {
 
-                agrupado[mes] +=
+                valores[
+                    mes - 1
+                ] +=
                     Number(
                         dato.utilidad
                     ) || 0;
@@ -1078,49 +1777,30 @@ function crearGraficoMensual() {
         }
     );
 
-    const nombresMeses = [
-        "Enero",
-        "Febrero",
-        "Marzo",
-        "Abril",
-        "Mayo",
-        "Junio",
-        "Julio",
-        "Agosto",
-        "Septiembre",
-        "Octubre",
-        "Noviembre",
-        "Diciembre"
-    ];
-
-    const valores =
-        nombresMeses.map(
-            function(_, index) {
-
-                return agrupado[
-                    index + 1
-                ];
-
-            }
-        );
 
     if (graficoMensual) {
+
         graficoMensual.destroy();
+
     }
+
 
     graficoMensual =
         new Chart(
             canvas,
             {
+
                 type: "line",
 
                 data: {
 
                     labels:
-                        nombresMeses,
+                        meses,
 
                     datasets: [
+
                         {
+
                             label:
                                 "Utilidad",
 
@@ -1129,7 +1809,9 @@ function crearGraficoMensual() {
 
                             tension:
                                 0.3
+
                         }
+
                     ]
 
                 },
@@ -1146,9 +1828,9 @@ function crearGraficoMensual() {
 }
 
 
-// ======================================================
-// GRÁFICO VENDEDORES
-// ======================================================
+// ============================================================
+// VENDEDORES
+// ============================================================
 
 function crearGraficoVendedores() {
 
@@ -1157,60 +1839,73 @@ function crearGraficoVendedores() {
             "graficoVendedores"
         );
 
+
     if (!canvas) {
         return;
     }
 
-    const agrupado =
-        agrupar("vendedor");
+
+    const datos =
+        agrupar(
+            "vendedor"
+        );
+
 
     const elementos =
-        Object.entries(agrupado)
+        Object.entries(
+            datos
+        )
         .sort(
             (a, b) =>
                 b[1].utilidad -
                 a[1].utilidad
         );
 
-    const etiquetas =
-        elementos.map(
-            x => x[0]
-        );
-
-    const valores =
-        elementos.map(
-            x => x[1].utilidad
-        );
 
     if (graficoVendedores) {
+
         graficoVendedores.destroy();
+
     }
+
 
     graficoVendedores =
         new Chart(
             canvas,
             {
+
                 type: "bar",
 
                 data: {
 
-                    labels: etiquetas,
+                    labels:
+                        elementos.map(
+                            x => x[0]
+                        ),
 
                     datasets: [
+
                         {
+
                             label:
                                 "Utilidad",
 
                             data:
-                                valores
+                                elementos.map(
+                                    x =>
+                                        x[1].utilidad
+                                )
+
                         }
+
                     ]
 
                 },
 
                 options: {
 
-                    indexAxis: "y",
+                    indexAxis:
+                        "y",
 
                     responsive: true,
 
@@ -1230,9 +1925,9 @@ function crearGraficoVendedores() {
 }
 
 
-// ======================================================
-// TABLA DE PRODUCTOS
-// ======================================================
+// ============================================================
+// TABLA PRODUCTOS
+// ============================================================
 
 function actualizarTabla() {
 
@@ -1241,22 +1936,31 @@ function actualizarTabla() {
             "tablaProductos"
         );
 
+
     if (!cuerpo) {
         return;
     }
 
+
     cuerpo.innerHTML = "";
 
-    const agrupado =
-        agrupar("producto");
+
+    const datos =
+        agrupar(
+            "producto"
+        );
+
 
     const productos =
-        Object.entries(agrupado)
+        Object.entries(
+            datos
+        )
         .sort(
             (a, b) =>
                 b[1].ventas -
                 a[1].ventas
         );
+
 
     if (!productos.length) {
 
@@ -1273,8 +1977,11 @@ function actualizarTabla() {
 
     }
 
+
     productos.forEach(
-        function([producto, datos]) {
+        function (
+            [producto, datos]
+        ) {
 
             const margen =
                 datos.ventas !== 0
@@ -1282,15 +1989,19 @@ function actualizarTabla() {
                       datos.ventas
                     : 0;
 
+
             const fila =
                 document.createElement(
                     "tr"
                 );
 
+
             fila.innerHTML = `
 
                 <td>
-                    ${escapeHTML(producto)}
+                    ${escapeHTML(
+                        producto
+                    )}
                 </td>
 
                 <td>
@@ -1319,6 +2030,7 @@ function actualizarTabla() {
 
             `;
 
+
             cuerpo.appendChild(
                 fila
             );
@@ -1329,18 +2041,27 @@ function actualizarTabla() {
 }
 
 
-// ======================================================
+// ============================================================
 // FORMATO MONEDA
-// ======================================================
+// ============================================================
 
-function formatoMoneda(valor) {
+function formatoMoneda(
+    valor
+) {
 
     return new Intl.NumberFormat(
         "es-CO",
         {
-            style: "currency",
-            currency: "COP",
-            maximumFractionDigits: 0
+
+            style:
+                "currency",
+
+            currency:
+                "COP",
+
+            maximumFractionDigits:
+                0
+
         }
     ).format(
         Number(valor) || 0
@@ -1349,18 +2070,27 @@ function formatoMoneda(valor) {
 }
 
 
-// ======================================================
+// ============================================================
 // FORMATO PORCENTAJE
-// ======================================================
+// ============================================================
 
-function formatoPorcentaje(valor) {
+function formatoPorcentaje(
+    valor
+) {
 
     return new Intl.NumberFormat(
         "es-CO",
         {
-            style: "percent",
-            minimumFractionDigits: 1,
-            maximumFractionDigits: 1
+
+            style:
+                "percent",
+
+            minimumFractionDigits:
+                1,
+
+            maximumFractionDigits:
+                1
+
         }
     ).format(
         Number(valor) || 0
@@ -1369,13 +2099,17 @@ function formatoPorcentaje(valor) {
 }
 
 
-// ======================================================
-// SEGURIDAD PARA TEXTO HTML
-// ======================================================
+// ============================================================
+// SEGURIDAD HTML
+// ============================================================
 
-function escapeHTML(valor) {
+function escapeHTML(
+    valor
+) {
 
-    return String(valor)
+    return String(
+        valor
+    )
         .replace(
             /&/g,
             "&amp;"
