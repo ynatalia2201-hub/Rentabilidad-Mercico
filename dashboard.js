@@ -97,9 +97,23 @@ function cargarExcel(event) {
 // LIMPIAR DATOS
 // =====================================================
 
-function prepararDatos() function prepararDatos() {
+function prepararDatos() {
 
     datos = datos.map(fila => {
+
+        const ventas =
+            fila["VrRem"] ??
+            fila["Vr Rem"] ??
+            fila["VRREM"] ??
+            fila["Valor Remisión"] ??
+            fila["Valor Remision"] ??
+            0;
+
+        const costo =
+            fila["Costo"] ??
+            fila["COSTO"] ??
+            fila["Costos"] ??
+            0;
 
         return {
 
@@ -127,17 +141,16 @@ function prepararDatos() function prepararDatos() {
                 limpiarNumero(fila["Cant"]),
 
             VrRem:
-                limpiarNumero(fila["VrRem"]),
+                limpiarNumero(ventas),
 
             Costo:
-                limpiarNumero(fila["Costo"])
+                limpiarNumero(costo)
 
         };
 
     });
 
 }
-
 
 function limpiarNumero(valor) {
 
