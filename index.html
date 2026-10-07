@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,57 +8,145 @@
     <title>Dashboard de Rentabilidad - Mercico</title>
 
     <link rel="stylesheet" href="styles.css">
+
+    <!-- Librería para leer archivos Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+    <!-- Librería para gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 </head>
 
 <body>
 
     <header class="header">
+
         <div>
             <h1>Dashboard de Rentabilidad</h1>
             <p>Mercico · Análisis de rentabilidad</p>
         </div>
+
     </header>
 
 
     <main class="container">
+
+
+        <!-- CARGAR EXCEL -->
+
+        <section class="upload-section">
+
+            <h2>Cargar información</h2>
+
+            <p>
+                Selecciona tu archivo Excel de rentabilidad
+                para actualizar el dashboard.
+            </p>
+
+            <input
+                type="file"
+                id="archivoExcel"
+                accept=".xlsx,.xls"
+            >
+
+            <p id="estadoArchivo">
+                Ningún archivo cargado
+            </p>
+
+        </section>
+
 
         <!-- FILTROS -->
 
         <section class="filters">
 
             <div class="filter">
+
                 <label>Año</label>
+
                 <select id="filtroAnio">
-                    <option value="todos">Todos</option>
+
+                    <option value="todos">
+                        Todos
+                    </option>
+
                 </select>
+
             </div>
 
+
             <div class="filter">
+
                 <label>Mes</label>
+
                 <select id="filtroMes">
-                    <option value="todos">Todos</option>
+
+                    <option value="todos">
+                        Todos
+                    </option>
+
                 </select>
+
             </div>
 
+
             <div class="filter">
+
+                <label>Vendedor</label>
+
+                <select id="filtroVendedor">
+
+                    <option value="todos">
+                        Todos
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <div class="filter">
+
                 <label>Cliente</label>
+
                 <select id="filtroCliente">
-                    <option value="todos">Todos</option>
+
+                    <option value="todos">
+                        Todos
+                    </option>
+
                 </select>
+
             </div>
 
+
             <div class="filter">
+
                 <label>Línea</label>
+
                 <select id="filtroLinea">
-                    <option value="todos">Todas</option>
+
+                    <option value="todos">
+                        Todas
+                    </option>
+
                 </select>
+
             </div>
 
+
             <div class="filter">
+
                 <label>Producto</label>
+
                 <select id="filtroProducto">
-                    <option value="todos">Todos</option>
+
+                    <option value="todos">
+                        Todos
+                    </option>
+
                 </select>
+
             </div>
 
         </section>
@@ -67,68 +156,146 @@
 
         <section class="cards">
 
+
             <div class="card">
+
                 <span>VENTAS</span>
-                <strong id="ventas">$0</strong>
+
+                <strong id="ventas">
+                    $0
+                </strong>
+
             </div>
 
+
             <div class="card">
+
                 <span>COSTOS</span>
-                <strong id="costos">$0</strong>
+
+                <strong id="costos">
+                    $0
+                </strong>
+
             </div>
 
+
             <div class="card">
+
                 <span>UTILIDAD</span>
-                <strong id="utilidad">$0</strong>
+
+                <strong id="utilidad">
+                    $0
+                </strong>
+
             </div>
 
+
             <div class="card">
+
                 <span>MARGEN</span>
-                <strong id="margen">0%</strong>
+
+                <strong id="margen">
+                    0%
+                </strong>
+
             </div>
+
 
         </section>
 
 
-        <!-- CONTENIDO -->
+        <!-- GRAFICOS -->
 
         <section class="dashboard-grid">
 
+
             <div class="panel">
-                <h2>Rentabilidad por cliente</h2>
-                <div id="graficoClientes"></div>
+
+                <h2>
+                    Rentabilidad por cliente
+                </h2>
+
+                <canvas id="graficoClientes"></canvas>
+
             </div>
 
 
             <div class="panel">
-                <h2>Rentabilidad por línea</h2>
-                <div id="graficoLineas"></div>
+
+                <h2>
+                    Rentabilidad por línea
+                </h2>
+
+                <canvas id="graficoLineas"></canvas>
+
             </div>
 
+
+            <div class="panel">
+
+                <h2>
+                    Evolución mensual
+                </h2>
+
+                <canvas id="graficoMensual"></canvas>
+
+            </div>
+
+
+            <div class="panel">
+
+                <h2>
+                    Utilidad por vendedor
+                </h2>
+
+                <canvas id="graficoVendedores"></canvas>
+
+            </div>
+
+
+            <!-- TABLA PRODUCTOS -->
 
             <div class="panel full">
-                <h2>Rentabilidad por producto</h2>
+
+                <h2>
+                    Rentabilidad por producto
+                </h2>
+
 
                 <div class="table-container">
 
                     <table>
 
                         <thead>
+
                             <tr>
+
                                 <th>Producto</th>
+
                                 <th>Ventas</th>
+
                                 <th>Costos</th>
+
                                 <th>Utilidad</th>
+
                                 <th>Margen</th>
+
                             </tr>
+
                         </thead>
+
 
                         <tbody id="tablaProductos">
 
                             <tr>
+
                                 <td colspan="5">
-                                    Cargando información...
+
+                                    Carga un archivo Excel
+                                    para comenzar.
+
                                 </td>
+
                             </tr>
 
                         </tbody>
@@ -139,17 +306,22 @@
 
             </div>
 
+
         </section>
+
 
     </main>
 
 
     <footer>
+
         Dashboard de Rentabilidad · Mercico
+
     </footer>
 
 
     <script src="dashboard.js"></script>
 
 </body>
+
 </html>
