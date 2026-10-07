@@ -1,4 +1,5 @@
-let datos = [];
+let datosOriginales = [];
+let datosFiltrados = [];
 
 let graficoClientes = null;
 let graficoLineas = null;
@@ -6,9 +7,9 @@ let graficoMensual = null;
 let graficoVendedores = null;
 
 
-// =====================================================
+// ======================================================
 // CARGAR ARCHIVO EXCEL
-// =====================================================
+// ======================================================
 
 document
     .getElementById("archivoExcel")
@@ -19,82 +20,81 @@ function cargarExcel(event) {
 
     const archivo = event.target.files[0];
 
+    const estado = document.getElementById("estadoArchivo");
+
     if (!archivo) {
+        estado.textContent = "Ningún archivo cargado";
         return;
     }
-
-    const estado = document.getElementById("estadoArchivo");
 
     estado.textContent = "Leyendo archivo...";
 
     const lector = new FileReader();
 
-
     lector.onload = function(e) {
 
         try {
 
-            const contenido = new Uint8Array(e.target.result);
+            const datos = new Uint8Array(e.target.result);
 
-            const libro = XLSX.read(contenido, {
+            const libro = XLSX.read(datos, {
                 type: "array"
             });
 
-
-            if (!libro.SheetNames || libro.SheetNames.length === 0) {
-
+            if (!libro.SheetNames.length) {
                 throw new Error("El archivo no contiene hojas.");
-
             }
-
-
-            // Primera hoja del Excel
 
             const nombreHoja = libro.SheetNames[0];
 
             const hoja = libro.Sheets[nombreHoja];
 
-
-            // Convertir Excel a objetos
-
-            datos = XLSX.utils.sheet_to_json(hoja, {
+            const filas = XLSX.utils.sheet_to_json(hoja, {
                 defval: ""
             });
 
-
-            if (datos.length === 0) {
-
-                estado.textContent =
-                    "El archivo no contiene información.";
-
-                return;
-
+            if (!filas.length) {
+                throw new Error(
+                    "La primera hoja del Excel no contiene información."
+                );
             }
 
+            console.log("Columnas encontradas:", Object.keys(filas[0]));
+            console.log("Primera fila:", filas[0]);
 
-            estado.textContent =
-                `Archivo cargado correctamente · ${datos.length.toLocaleString()} registros`;
+            datosOriginales = prepararDatos(filas);
 
-
-            prepararDatos();
+            if (!datosOriginales.length) {
+                throw new Error(
+                    "No se pudieron preparar los datos del Excel."
+                );
+            }
 
             llenarFiltros();
 
             actualizarDashboard();
 
+            estado.textContent =
+                "Archivo cargado correctamente: " +
+                datosOriginales.length +
+                " registros.";
+
         }
 
         catch (error) {
 
-            console.error("Error leyendo Excel:", error);
+            console.error(
+                "ERROR COMPLETO:",
+                error
+            );
 
             estado.textContent =
-                "No fue posible leer el archivo Excel.";
+                "ERROR: " +
+                error.message;
 
         }
 
     };
-
 
     lector.onerror = function() {
 
@@ -103,66 +103,127 @@ function cargarExcel(event) {
 
     };
 
-
     lector.readAsArrayBuffer(archivo);
-
 }
 
 
-// =====================================================
+// ======================================================
 // PREPARAR DATOS
-// =====================================================
+// ======================================================
 
-function prepararDatos() {
+function prepararDatos(filas) {
 
-    datos = datos.map(fila => {
+    return filas.map(function(fila) {
 
-        const ventas =
+        const ventas = limpiarNumero(
             fila["VrRem"] ??
             fila["Vr Rem"] ??
             fila["VRREM"] ??
             fila["Valor Remisión"] ??
             fila["Valor Remision"] ??
-            0;
+            0
+        );
 
-
-        const costo =
+        const costo = limpiarNumero(
             fila["Costo"] ??
             fila["COSTO"] ??
             fila["Costos"] ??
-            0;
+            0
+        );
 
+        const utilidadExcel = limpiarNumero(
+            fila["Utilidad"] ?? 0
+        );
+
+        const utilidad =
+            ventas - costo;
+
+        const margen =
+            ventas !== 0
+                ? utilidad / ventas
+                : 0;
 
         return {
 
-            ...fila,
+            vendedor:
+                limpiarTexto(
+                    fila["Vendedor"]
+                ),
 
-            Vendedor:
-                limpiarTexto(fila["Vendedor"]),
+            cliente:
+                limpiarTexto(
+                    fila["Cliente"]
+                ),
 
-            Cliente:
-                limpiarTexto(fila["Cliente"]),
+            remision:
+                limpiarTexto(
+                    fila["Remision"]
+                ),
 
-            Linea:
-                limpiarTexto(fila["Linea"]),
+            fecha:
+                fila["Fecha"],
 
-            Producto:
-                limpiarTexto(fila["Producto"]),
+            pedido:
+                limpiarTexto(
+                    fila["Pedid"]
+                ),
 
-            Año:
-                limpiarNumero(fila["Año"]),
+            linea:
+                limpiarTexto(
+                    fila["Linea"]
+                ),
 
-            Mes:
-                limpiarNumero(fila["Mes"]),
+            codigo:
+                limpiarTexto(
+                    fila["Cod"]
+                ),
 
-            Cant:
-                limpiarNumero(fila["Cant"]),
+            llave:
+                limpiarTexto(
+                    fila["Llave1"]
+                ),
 
-            VrRem:
-                limpiarNumero(ventas),
+            producto:
+                limpiarTexto(
+                    fila["Producto"]
+                ),
 
-            Costo:
-                limpiarNumero(costo)
+            cantidad:
+                limpiarNumero(
+                    fila["Cant"]
+                ),
+
+            mes:
+                obtenerMes(
+                    fila["Mes"],
+                    fila["Fecha"]
+                ),
+
+            factura:
+                limpiarTexto(
+                    fila["Factura"]
+                ),
+
+            valorVenta:
+                ventas,
+
+            costo:
+                costo,
+
+            utilidad:
+                utilidad,
+
+            utilidadExcel:
+                utilidadExcel,
+
+            margen:
+                margen,
+
+            anio:
+                obtenerAnio(
+                    fila["Año"],
+                    fila["Fecha"]
+                )
 
         };
 
@@ -171,9 +232,9 @@ function prepararDatos() {
 }
 
 
-// =====================================================
+// ======================================================
 // LIMPIAR TEXTO
-// =====================================================
+// ======================================================
 
 function limpiarTexto(valor) {
 
@@ -181,22 +242,17 @@ function limpiarTexto(valor) {
         valor === null ||
         valor === undefined
     ) {
-
         return "";
-
     }
 
-
-    return String(valor)
-        .replace(/\s+/g, " ")
-        .trim();
+    return String(valor).trim();
 
 }
 
 
-// =====================================================
+// ======================================================
 // LIMPIAR NÚMEROS
-// =====================================================
+// ======================================================
 
 function limpiarNumero(valor) {
 
@@ -205,89 +261,63 @@ function limpiarNumero(valor) {
         valor === undefined ||
         valor === ""
     ) {
-
         return 0;
-
     }
-
-
-    // Si Excel ya lo reconoce como número
 
     if (typeof valor === "number") {
-
-        return valor;
-
+        return Number.isFinite(valor)
+            ? valor
+            : 0;
     }
 
-
-    let texto = String(valor)
+    let texto =
+        String(valor)
         .trim()
-        .replace(/\$/g, "")
         .replace(/\s/g, "");
 
+    if (!texto) {
+        return 0;
+    }
 
-    // Formato:
-    // 9.460.000,50
+    // Elimina símbolos de moneda
+    texto = texto.replace(
+        /[$€£]/g,
+        ""
+    );
 
+    // Caso colombiano:
+    // 9.460.000
+    // 3.691.869
     if (
         texto.includes(".") &&
         texto.includes(",")
     ) {
 
-        texto = texto
+        texto =
+            texto
             .replace(/\./g, "")
             .replace(",", ".");
 
     }
 
-
-    // Formato:
-    // 9,460,000
-    // 9,460,000.50
-
-    else if (
-        texto.includes(",")
-    ) {
-
-        const partes =
-            texto.split(",");
-
-
-        if (
-            partes.length > 1 &&
-            partes[partes.length - 1].length === 3
-        ) {
-
-            texto =
-                texto.replace(/,/g, "");
-
-        }
-
-        else {
-
-            texto =
-                texto.replace(",", ".");
-
-        }
-
-    }
-
-
-    // Formato:
+    // Caso:
     // 9.460.000
-
-    else if (
-        texto.includes(".")
+    if (
+        texto.includes(".") &&
+        !texto.includes(",")
     ) {
 
         const partes =
             texto.split(".");
 
+        const parecenMiles =
+            partes.length > 2 ||
+            (
+                partes.length === 2 &&
+                partes[1].length === 3
+            );
 
-        if (
-            partes.length > 1 &&
-            partes[partes.length - 1].length === 3
-        ) {
+        if (parecenMiles) {
 
             texto =
                 texto.replace(/\./g, "");
@@ -296,217 +326,318 @@ function limpiarNumero(valor) {
 
     }
 
+    // Caso:
+    // 9460000,50
+    if (
+        texto.includes(",") &&
+        !texto.includes(".")
+    ) {
+
+        const partes =
+            texto.split(",");
+
+        if (
+            partes.length === 2 &&
+            partes[1].length <= 2
+        ) {
+
+            texto =
+                texto.replace(",", ".");
+
+        } else {
+
+            texto =
+                texto.replace(/,/g, "");
+
+        }
+
+    }
+
+    // Dejar solamente números,
+    // punto y signo negativo
+    texto =
+        texto.replace(
+            /[^0-9.-]/g,
+            ""
+        );
 
     const numero =
         Number(texto);
 
+    return Number.isFinite(numero)
+        ? numero
+        : 0;
 
-    if (isNaN(numero)) {
+}
 
-        return 0;
+
+// ======================================================
+// OBTENER AÑO
+// ======================================================
+
+function obtenerAnio(valor, fecha) {
+
+    if (
+        valor !== undefined &&
+        valor !== null &&
+        valor !== ""
+    ) {
+
+        const numero =
+            Number(valor);
+
+        if (
+            Number.isFinite(numero) &&
+            numero > 1900
+        ) {
+            return numero;
+        }
 
     }
 
+    if (
+        fecha instanceof Date &&
+        !isNaN(fecha)
+    ) {
 
-    return numero;
+        return fecha.getFullYear();
 
-}
+    }
 
+    if (typeof fecha === "number") {
 
-// =====================================================
-// OBTENER DATOS FILTRADOS
-// =====================================================
+        const fechaExcel =
+            XLSX.SSF.parse_date_code(
+                fecha
+            );
 
-function obtenerDatosFiltrados() {
+        if (fechaExcel) {
+            return fechaExcel.y;
+        }
 
-    const anio =
-        document.getElementById("filtroAnio").value;
+    }
 
+    const texto =
+        String(fecha || "");
 
-    const mes =
-        document.getElementById("filtroMes").value;
-
-
-    const vendedor =
-        document.getElementById("filtroVendedor").value;
-
-
-    const cliente =
-        document.getElementById("filtroCliente").value;
-
-
-    const linea =
-        document.getElementById("filtroLinea").value;
-
-
-    const producto =
-        document.getElementById("filtroProducto").value;
-
-
-    return datos.filter(fila => {
-
-        return (
-
-            (
-                anio === "todos" ||
-                String(fila.Año) === anio
-            )
-
-            &&
-
-            (
-                mes === "todos" ||
-                String(fila.Mes) === mes
-            )
-
-            &&
-
-            (
-                vendedor === "todos" ||
-                fila.Vendedor === vendedor
-            )
-
-            &&
-
-            (
-                cliente === "todos" ||
-                fila.Cliente === cliente
-            )
-
-            &&
-
-            (
-                linea === "todos" ||
-                fila.Linea === linea
-            )
-
-            &&
-
-            (
-                producto === "todos" ||
-                fila.Producto === producto
-            )
-
+    const coincidencia =
+        texto.match(
+            /(20\d{2})/
         );
 
-    });
+    if (coincidencia) {
+        return Number(
+            coincidencia[1]
+        );
+    }
+
+    return 2026;
 
 }
 
 
-// =====================================================
+// ======================================================
+// OBTENER MES
+// ======================================================
+
+function obtenerMes(valor, fecha) {
+
+    if (
+        valor !== undefined &&
+        valor !== null &&
+        valor !== ""
+    ) {
+
+        const numero =
+            Number(valor);
+
+        if (
+            Number.isFinite(numero) &&
+            numero >= 1 &&
+            numero <= 12
+        ) {
+            return numero;
+        }
+
+    }
+
+    if (
+        fecha instanceof Date &&
+        !isNaN(fecha)
+    ) {
+
+        return fecha.getMonth() + 1;
+
+    }
+
+    if (typeof fecha === "number") {
+
+        const fechaExcel =
+            XLSX.SSF.parse_date_code(
+                fecha
+            );
+
+        if (fechaExcel) {
+            return fechaExcel.m;
+        }
+
+    }
+
+    const texto =
+        String(fecha || "");
+
+    const coincidencia =
+        texto.match(
+            /(\d{1,2})[\/\-](\d{1,2})[\/\-](20\d{2})/
+        );
+
+    if (coincidencia) {
+
+        return Number(
+            coincidencia[2]
+        );
+
+    }
+
+    return 1;
+
+}
+
+
+// ======================================================
 // LLENAR FILTROS
-// =====================================================
+// ======================================================
 
 function llenarFiltros() {
 
     llenarSelect(
         "filtroAnio",
-        datos.map(x => x.Año),
+        datosOriginales.map(
+            d => d.anio
+        ),
         "Todos"
     );
-
 
     llenarSelect(
         "filtroMes",
-        datos.map(x => x.Mes),
+        datosOriginales.map(
+            d => d.mes
+        ),
         "Todos"
     );
-
 
     llenarSelect(
         "filtroVendedor",
-        datos.map(x => x.Vendedor),
+        datosOriginales.map(
+            d => d.vendedor
+        ),
         "Todos"
     );
-
 
     llenarSelect(
         "filtroCliente",
-        datos.map(x => x.Cliente),
+        datosOriginales.map(
+            d => d.cliente
+        ),
         "Todos"
     );
 
-
     llenarSelect(
         "filtroLinea",
-        datos.map(x => x.Linea),
+        datosOriginales.map(
+            d => d.linea
+        ),
         "Todas"
     );
 
-
     llenarSelect(
         "filtroProducto",
-        datos.map(x => x.Producto),
+        datosOriginales.map(
+            d => d.producto
+        ),
         "Todos"
     );
 
 }
 
 
-// =====================================================
-// CREAR OPCIONES DE FILTROS
-// =====================================================
+// ======================================================
+// CREAR OPCIONES DE SELECT
+// ======================================================
 
-function llenarSelect(id, valores, textoInicial) {
+function llenarSelect(
+    id,
+    valores,
+    textoTodos
+) {
 
     const select =
         document.getElementById(id);
 
+    if (!select) {
+        return;
+    }
 
     select.innerHTML = "";
 
-
-    const opcionInicial =
+    const opcionTodos =
         document.createElement("option");
 
+    opcionTodos.value = "todos";
+    opcionTodos.textContent = textoTodos;
 
-    opcionInicial.value =
-        "todos";
-
-
-    opcionInicial.textContent =
-        textoInicial;
-
-
-    select.appendChild(opcionInicial);
-
+    select.appendChild(
+        opcionTodos
+    );
 
     const valoresUnicos =
         [...new Set(
-
             valores
-                .filter(x => x !== "")
-                .map(x => String(x))
-
+                .filter(
+                    v =>
+                        v !== null &&
+                        v !== undefined &&
+                        v !== ""
+                )
+                .map(
+                    v => String(v)
+                )
         )]
-        .sort();
+        .sort(
+            (a, b) =>
+                a.localeCompare(
+                    b,
+                    "es",
+                    {
+                        numeric: true
+                    }
+                )
+        );
 
+    valoresUnicos.forEach(
+        function(valor) {
 
-    valoresUnicos.forEach(valor => {
+            const opcion =
+                document.createElement(
+                    "option"
+                );
 
-        const opcion =
-            document.createElement("option");
+            opcion.value = valor;
+            opcion.textContent = valor;
 
+            select.appendChild(
+                opcion
+            );
 
-        opcion.value =
-            valor;
-
-
-        opcion.textContent =
-            valor;
-
-
-        select.appendChild(opcion);
-
-    });
+        }
+    );
 
 }
 
 
-// =====================================================
+// ======================================================
 // EVENTOS DE FILTROS
-// =====================================================
+// ======================================================
 
 [
     "filtroAnio",
@@ -515,217 +646,274 @@ function llenarSelect(id, valores, textoInicial) {
     "filtroCliente",
     "filtroLinea",
     "filtroProducto"
+]
+.forEach(
+    function(id) {
 
-].forEach(id => {
+        const elemento =
+            document.getElementById(id);
 
-    document
-        .getElementById(id)
-        .addEventListener(
-            "change",
-            actualizarDashboard
-        );
+        if (elemento) {
 
-});
+            elemento.addEventListener(
+                "change",
+                actualizarDashboard
+            );
+
+        }
+
+    }
+);
 
 
-// =====================================================
+// ======================================================
 // ACTUALIZAR DASHBOARD
-// =====================================================
+// ======================================================
 
 function actualizarDashboard() {
 
-    const filtrados =
-        obtenerDatosFiltrados();
+    datosFiltrados =
+        datosOriginales.filter(
+            function(dato) {
 
+                return coincideFiltro(
+                    dato.anio,
+                    "filtroAnio"
+                )
+                &&
+                coincideFiltro(
+                    dato.mes,
+                    "filtroMes"
+                )
+                &&
+                coincideFiltro(
+                    dato.vendedor,
+                    "filtroVendedor"
+                )
+                &&
+                coincideFiltro(
+                    dato.cliente,
+                    "filtroCliente"
+                )
+                &&
+                coincideFiltro(
+                    dato.linea,
+                    "filtroLinea"
+                )
+                &&
+                coincideFiltro(
+                    dato.producto,
+                    "filtroProducto"
+                );
 
-    actualizarKPIs(filtrados);
+            }
+        );
 
-    actualizarGraficoClientes(filtrados);
+    actualizarKPIs();
 
-    actualizarGraficoLineas(filtrados);
+    actualizarGraficos();
 
-    actualizarGraficoMensual(filtrados);
-
-    actualizarGraficoVendedores(filtrados);
-
-    actualizarTablaProductos(filtrados);
+    actualizarTabla();
 
 }
 
 
-// =====================================================
-// KPIs
-// =====================================================
+// ======================================================
+// VALIDAR FILTROS
+// ======================================================
 
-function actualizarKPIs(filas) {
+function coincideFiltro(
+    valor,
+    idFiltro
+) {
+
+    const filtro =
+        document.getElementById(
+            idFiltro
+        );
+
+    if (!filtro) {
+        return true;
+    }
+
+    if (
+        filtro.value === "todos"
+    ) {
+        return true;
+    }
+
+    return String(valor) ===
+        String(filtro.value);
+
+}
+
+
+// ======================================================
+// ACTUALIZAR KPIs
+// ======================================================
+
+function actualizarKPIs() {
 
     let ventas = 0;
-
     let costos = 0;
+    let utilidad = 0;
 
+    datosFiltrados.forEach(
+        function(dato) {
 
-    filas.forEach(fila => {
+            ventas +=
+                Number(dato.valorVenta) || 0;
 
-        ventas +=
-            Number(fila.VrRem) || 0;
+            costos +=
+                Number(dato.costo) || 0;
 
+            utilidad +=
+                Number(dato.utilidad) || 0;
 
-        costos +=
-            Number(fila.Costo) || 0;
-
-    });
-
-
-    const utilidad =
-        ventas - costos;
-
+        }
+    );
 
     const margen =
         ventas !== 0
             ? utilidad / ventas
             : 0;
 
-
-    document
-        .getElementById("ventas")
-        .textContent =
+    document.getElementById(
+        "ventas"
+    ).textContent =
         formatoMoneda(ventas);
 
-
-    document
-        .getElementById("costos")
-        .textContent =
+    document.getElementById(
+        "costos"
+    ).textContent =
         formatoMoneda(costos);
 
-
-    document
-        .getElementById("utilidad")
-        .textContent =
+    document.getElementById(
+        "utilidad"
+    ).textContent =
         formatoMoneda(utilidad);
 
-
-    document
-        .getElementById("margen")
-        .textContent =
+    document.getElementById(
+        "margen"
+    ).textContent =
         formatoPorcentaje(margen);
 
 }
 
 
-// =====================================================
-// AGRUPAR INFORMACIÓN
-// =====================================================
+// ======================================================
+// GRÁFICOS
+// ======================================================
 
-function agrupar(filas, campo) {
+function actualizarGraficos() {
+
+    crearGraficoClientes();
+
+    crearGraficoLineas();
+
+    crearGraficoMensual();
+
+    crearGraficoVendedores();
+
+}
+
+
+// ======================================================
+// AGRUPAR DATOS
+// ======================================================
+
+function agrupar(
+    campo,
+    tipo = "utilidad"
+) {
 
     const resultado = {};
 
+    datosFiltrados.forEach(
+        function(dato) {
 
-    filas.forEach(fila => {
+            const clave =
+                dato[campo] ||
+                "Sin información";
 
-        const clave =
-            fila[campo] || "Sin información";
+            if (!resultado[clave]) {
 
+                resultado[clave] = {
+                    ventas: 0,
+                    costos: 0,
+                    utilidad: 0
+                };
 
-        if (!resultado[clave]) {
+            }
 
-            resultado[clave] = {
+            resultado[clave].ventas +=
+                Number(
+                    dato.valorVenta
+                ) || 0;
 
-                ventas: 0,
+            resultado[clave].costos +=
+                Number(
+                    dato.costo
+                ) || 0;
 
-                costos: 0,
-
-                utilidad: 0
-
-            };
+            resultado[clave].utilidad +=
+                Number(
+                    dato.utilidad
+                ) || 0;
 
         }
-
-
-        resultado[clave].ventas +=
-            Number(fila.VrRem) || 0;
-
-
-        resultado[clave].costos +=
-            Number(fila.Costo) || 0;
-
-
-        resultado[clave].utilidad +=
-            (
-                Number(fila.VrRem) || 0
-            )
-            -
-            (
-                Number(fila.Costo) || 0
-            );
-
-    });
-
+    );
 
     return resultado;
 
 }
 
 
-// =====================================================
-// GRAFICO CLIENTES
-// =====================================================
+// ======================================================
+// GRÁFICO CLIENTES
+// ======================================================
 
-function actualizarGraficoClientes(filas) {
+function crearGraficoClientes() {
 
-    const agrupado =
-        agrupar(filas, "Cliente");
-
-
-    const datosOrdenados =
-        Object.entries(agrupado)
-
-            .map(([nombre, valores]) => ({
-
-                nombre,
-
-                utilidad:
-                    valores.utilidad
-
-            }))
-
-            .sort(
-                (a, b) =>
-                    b.utilidad - a.utilidad
-            )
-
-            .slice(0, 10);
-
-
-    const etiquetas =
-        datosOrdenados.map(
-            x => x.nombre
+    const canvas =
+        document.getElementById(
+            "graficoClientes"
         );
 
-
-    const valores =
-        datosOrdenados.map(
-            x => x.utilidad
-        );
-
-
-    if (graficoClientes) {
-
-        graficoClientes.destroy();
-
+    if (!canvas) {
+        return;
     }
 
+    const agrupado =
+        agrupar("cliente");
+
+    const elementos =
+        Object.entries(agrupado)
+        .sort(
+            (a, b) =>
+                b[1].utilidad -
+                a[1].utilidad
+        )
+        .slice(0, 15);
+
+    const etiquetas =
+        elementos.map(
+            x => x[0]
+        );
+
+    const valores =
+        elementos.map(
+            x => x[1].utilidad
+        );
+
+    if (graficoClientes) {
+        graficoClientes.destroy();
+    }
 
     graficoClientes =
         new Chart(
-
-            document
-                .getElementById(
-                    "graficoClientes"
-                ),
-
+            canvas,
             {
-
                 type: "bar",
 
                 data: {
@@ -733,17 +921,11 @@ function actualizarGraficoClientes(filas) {
                     labels: etiquetas,
 
                     datasets: [
-
                         {
+                            label: "Utilidad",
 
-                            label:
-                                "Utilidad",
-
-                            data:
-                                valores
-
+                            data: valores
                         }
-
                     ]
 
                 },
@@ -755,9 +937,7 @@ function actualizarGraficoClientes(filas) {
                     plugins: {
 
                         legend: {
-
                             display: false
-
                         }
 
                     }
@@ -765,202 +945,191 @@ function actualizarGraficoClientes(filas) {
                 }
 
             }
-
         );
 
 }
 
 
-// =====================================================
-// GRAFICO LINEAS
-// =====================================================
+// ======================================================
+// GRÁFICO LÍNEAS
+// ======================================================
 
-function actualizarGraficoLineas(filas) {
+function crearGraficoLineas() {
 
-    const agrupado =
-        agrupar(filas, "Linea");
-
-
-    const etiquetas =
-        Object.keys(agrupado);
-
-
-    const valores =
-        etiquetas.map(
-            x =>
-                agrupado[x].utilidad
+    const canvas =
+        document.getElementById(
+            "graficoLineas"
         );
 
-
-    if (graficoLineas) {
-
-        graficoLineas.destroy();
-
+    if (!canvas) {
+        return;
     }
 
+    const agrupado =
+        agrupar("linea");
+
+    const elementos =
+        Object.entries(agrupado)
+        .sort(
+            (a, b) =>
+                b[1].utilidad -
+                a[1].utilidad
+        );
+
+    const etiquetas =
+        elementos.map(
+            x => x[0]
+        );
+
+    const valores =
+        elementos.map(
+            x => x[1].utilidad
+        );
+
+    if (graficoLineas) {
+        graficoLineas.destroy();
+    }
 
     graficoLineas =
         new Chart(
-
-            document
-                .getElementById(
-                    "graficoLineas"
-                ),
-
+            canvas,
             {
-
                 type: "bar",
 
                 data: {
 
-                    labels:
-                        etiquetas,
+                    labels: etiquetas,
 
                     datasets: [
-
                         {
+                            label: "Utilidad",
 
-                            label:
-                                "Utilidad",
-
-                            data:
-                                valores
-
+                            data: valores
                         }
-
                     ]
 
                 },
 
                 options: {
 
-                    responsive: true
+                    responsive: true,
+
+                    plugins: {
+
+                        legend: {
+                            display: false
+                        }
+
+                    }
 
                 }
 
             }
-
         );
 
 }
 
 
-// =====================================================
-// GRAFICO MENSUAL
-// =====================================================
+// ======================================================
+// GRÁFICO MENSUAL
+// ======================================================
 
-function actualizarGraficoMensual(filas) {
+function crearGraficoMensual() {
+
+    const canvas =
+        document.getElementById(
+            "graficoMensual"
+        );
+
+    if (!canvas) {
+        return;
+    }
 
     const agrupado = {};
 
+    for (
+        let mes = 1;
+        mes <= 12;
+        mes++
+    ) {
 
-    filas.forEach(fila => {
-
-        const mes =
-            fila.Mes || "Sin mes";
-
-
-        if (!agrupado[mes]) {
-
-            agrupado[mes] = {
-
-                ventas: 0,
-
-                utilidad: 0
-
-            };
-
-        }
-
-
-        agrupado[mes].ventas +=
-            Number(fila.VrRem) || 0;
-
-
-        agrupado[mes].utilidad +=
-
-            (
-                Number(fila.VrRem) || 0
-            )
-            -
-            (
-                Number(fila.Costo) || 0
-            );
-
-    });
-
-
-    const meses =
-        Object.keys(agrupado)
-            .sort(
-                (a, b) =>
-                    Number(a) - Number(b)
-            );
-
-
-    const ventas =
-        meses.map(
-            mes =>
-                agrupado[mes].ventas
-        );
-
-
-    const utilidad =
-        meses.map(
-            mes =>
-                agrupado[mes].utilidad
-        );
-
-
-    if (graficoMensual) {
-
-        graficoMensual.destroy();
+        agrupado[mes] = 0;
 
     }
 
+    datosFiltrados.forEach(
+        function(dato) {
+
+            const mes =
+                Number(dato.mes);
+
+            if (
+                mes >= 1 &&
+                mes <= 12
+            ) {
+
+                agrupado[mes] +=
+                    Number(
+                        dato.utilidad
+                    ) || 0;
+
+            }
+
+        }
+    );
+
+    const nombresMeses = [
+        "Enero",
+        "Febrero",
+        "Marzo",
+        "Abril",
+        "Mayo",
+        "Junio",
+        "Julio",
+        "Agosto",
+        "Septiembre",
+        "Octubre",
+        "Noviembre",
+        "Diciembre"
+    ];
+
+    const valores =
+        nombresMeses.map(
+            function(_, index) {
+
+                return agrupado[
+                    index + 1
+                ];
+
+            }
+        );
+
+    if (graficoMensual) {
+        graficoMensual.destroy();
+    }
 
     graficoMensual =
         new Chart(
-
-            document
-                .getElementById(
-                    "graficoMensual"
-                ),
-
+            canvas,
             {
-
                 type: "line",
 
                 data: {
 
                     labels:
-                        meses.map(
-                            mes =>
-                                "Mes " + mes
-                        ),
+                        nombresMeses,
 
                     datasets: [
-
                         {
-
-                            label:
-                                "Ventas",
-
-                            data:
-                                ventas
-
-                        },
-
-                        {
-
                             label:
                                 "Utilidad",
 
                             data:
-                                utilidad
+                                valores,
 
+                            tension:
+                                0.3
                         }
-
                     ]
 
                 },
@@ -972,261 +1141,260 @@ function actualizarGraficoMensual(filas) {
                 }
 
             }
-
         );
 
 }
 
 
-// =====================================================
-// GRAFICO VENDEDORES
-// =====================================================
+// ======================================================
+// GRÁFICO VENDEDORES
+// ======================================================
 
-function actualizarGraficoVendedores(filas) {
+function crearGraficoVendedores() {
 
-    const agrupado =
-        agrupar(filas, "Vendedor");
-
-
-    const datosOrdenados =
-        Object.entries(agrupado)
-
-            .map(([nombre, valores]) => ({
-
-                nombre,
-
-                utilidad:
-                    valores.utilidad
-
-            }))
-
-            .sort(
-                (a, b) =>
-                    b.utilidad - a.utilidad
-            )
-
-            .slice(0, 10);
-
-
-    const etiquetas =
-        datosOrdenados.map(
-            x => x.nombre
+    const canvas =
+        document.getElementById(
+            "graficoVendedores"
         );
 
-
-    const valores =
-        datosOrdenados.map(
-            x => x.utilidad
-        );
-
-
-    if (graficoVendedores) {
-
-        graficoVendedores.destroy();
-
+    if (!canvas) {
+        return;
     }
 
+    const agrupado =
+        agrupar("vendedor");
+
+    const elementos =
+        Object.entries(agrupado)
+        .sort(
+            (a, b) =>
+                b[1].utilidad -
+                a[1].utilidad
+        );
+
+    const etiquetas =
+        elementos.map(
+            x => x[0]
+        );
+
+    const valores =
+        elementos.map(
+            x => x[1].utilidad
+        );
+
+    if (graficoVendedores) {
+        graficoVendedores.destroy();
+    }
 
     graficoVendedores =
         new Chart(
-
-            document
-                .getElementById(
-                    "graficoVendedores"
-                ),
-
+            canvas,
             {
-
                 type: "bar",
 
                 data: {
 
-                    labels:
-                        etiquetas,
+                    labels: etiquetas,
 
                     datasets: [
-
                         {
-
                             label:
                                 "Utilidad",
 
                             data:
                                 valores
-
                         }
-
                     ]
 
                 },
 
                 options: {
 
-                    responsive: true
+                    indexAxis: "y",
+
+                    responsive: true,
+
+                    plugins: {
+
+                        legend: {
+                            display: false
+                        }
+
+                    }
 
                 }
 
             }
-
         );
 
 }
 
 
-// =====================================================
-// TABLA PRODUCTOS
-// =====================================================
+// ======================================================
+// TABLA DE PRODUCTOS
+// ======================================================
 
-function actualizarTablaProductos(filas) {
+function actualizarTabla() {
 
-    const agrupado =
-        agrupar(filas, "Producto");
-
-
-    const productos =
-        Object.entries(agrupado)
-
-            .map(([nombre, valores]) => {
-
-                const margen =
-                    valores.ventas !== 0
-
-                        ? valores.utilidad /
-                          valores.ventas
-
-                        : 0;
-
-
-                return {
-
-                    nombre,
-
-                    ventas:
-                        valores.ventas,
-
-                    costos:
-                        valores.costos,
-
-                    utilidad:
-                        valores.utilidad,
-
-                    margen
-
-                };
-
-            })
-
-            .sort(
-                (a, b) =>
-                    b.utilidad - a.utilidad
-            );
-
-
-    const tbody =
+    const cuerpo =
         document.getElementById(
             "tablaProductos"
         );
 
+    if (!cuerpo) {
+        return;
+    }
 
-    tbody.innerHTML = "";
+    cuerpo.innerHTML = "";
 
+    const agrupado =
+        agrupar("producto");
 
-    productos.forEach(producto => {
+    const productos =
+        Object.entries(agrupado)
+        .sort(
+            (a, b) =>
+                b[1].ventas -
+                a[1].ventas
+        );
 
-        const fila =
-            document.createElement("tr");
+    if (!productos.length) {
 
-
-        fila.innerHTML = `
-
-            <td>
-                ${producto.nombre}
-            </td>
-
-            <td>
-                ${formatoMoneda(producto.ventas)}
-            </td>
-
-            <td>
-                ${formatoMoneda(producto.costos)}
-            </td>
-
-            <td>
-                ${formatoMoneda(producto.utilidad)}
-            </td>
-
-            <td>
-                ${formatoPorcentaje(producto.margen)}
-            </td>
-
-        `;
-
-
-        tbody.appendChild(fila);
-
-    });
-
-
-    if (productos.length === 0) {
-
-        tbody.innerHTML = `
-
+        cuerpo.innerHTML = `
             <tr>
-
                 <td colspan="5">
-
                     No hay información
                     para los filtros seleccionados.
-
                 </td>
-
             </tr>
-
         `;
 
+        return;
+
     }
+
+    productos.forEach(
+        function([producto, datos]) {
+
+            const margen =
+                datos.ventas !== 0
+                    ? datos.utilidad /
+                      datos.ventas
+                    : 0;
+
+            const fila =
+                document.createElement(
+                    "tr"
+                );
+
+            fila.innerHTML = `
+
+                <td>
+                    ${escapeHTML(producto)}
+                </td>
+
+                <td>
+                    ${formatoMoneda(
+                        datos.ventas
+                    )}
+                </td>
+
+                <td>
+                    ${formatoMoneda(
+                        datos.costos
+                    )}
+                </td>
+
+                <td>
+                    ${formatoMoneda(
+                        datos.utilidad
+                    )}
+                </td>
+
+                <td>
+                    ${formatoPorcentaje(
+                        margen
+                    )}
+                </td>
+
+            `;
+
+            cuerpo.appendChild(
+                fila
+            );
+
+        }
+    );
 
 }
 
 
-// =====================================================
+// ======================================================
 // FORMATO MONEDA
-// =====================================================
+// ======================================================
 
 function formatoMoneda(valor) {
 
     return new Intl.NumberFormat(
         "es-CO",
         {
-
             style: "currency",
-
             currency: "COP",
-
             maximumFractionDigits: 0
-
         }
-
-    ).format(valor);
+    ).format(
+        Number(valor) || 0
+    );
 
 }
 
 
-// =====================================================
+// ======================================================
 // FORMATO PORCENTAJE
-// =====================================================
+// ======================================================
 
 function formatoPorcentaje(valor) {
 
-    return (
-
-        (
-            valor * 100
-        )
-        .toFixed(1)
-
-        + "%"
-
+    return new Intl.NumberFormat(
+        "es-CO",
+        {
+            style: "percent",
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1
+        }
+    ).format(
+        Number(valor) || 0
     );
+
+}
+
+
+// ======================================================
+// SEGURIDAD PARA TEXTO HTML
+// ======================================================
+
+function escapeHTML(valor) {
+
+    return String(valor)
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+        .replace(
+            /</g,
+            "&lt;"
+        )
+        .replace(
+            />/g,
+            "&gt;"
+        )
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+        .replace(
+            /'/g,
+            "&#039;"
+        );
 
 }
