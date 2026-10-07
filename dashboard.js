@@ -97,7 +97,7 @@ function cargarExcel(event) {
 // LIMPIAR DATOS
 // =====================================================
 
-function prepararDatos() {
+function prepararDatos() function prepararDatos() {
 
     datos = datos.map(fila => {
 
@@ -139,19 +139,87 @@ function prepararDatos() {
 }
 
 
-// =====================================================
-// LIMPIAR TEXTO
-// =====================================================
+function limpiarNumero(valor) {
 
-function limpiarTexto(valor) {
-
-    if (valor === null || valor === undefined) {
-        return "";
+    if (
+        valor === null ||
+        valor === undefined ||
+        valor === ""
+    ) {
+        return 0;
     }
 
-    return String(valor)
-        .replace(/\s+/g, " ")
-        .trim();
+    if (typeof valor === "number") {
+        return valor;
+    }
+
+    let texto = String(valor)
+        .trim()
+        .replace(/\$/g, "")
+        .replace(/\s/g, "");
+
+    /*
+       Maneja formatos como:
+
+       9,460,000
+       9.460.000
+       $9.460.000
+       $ 9,460,000
+       9460000
+    */
+
+    if (
+        texto.includes(".") &&
+        texto.includes(",")
+    ) {
+
+        // Formato tipo 9.460.000,50
+        texto = texto
+            .replace(/\./g, "")
+            .replace(",", ".");
+
+    } else if (
+        texto.includes(".")
+    ) {
+
+        const partes = texto.split(".");
+
+        if (
+            partes.length > 1 &&
+            partes[partes.length - 1].length === 3
+        ) {
+
+            // 9.460.000
+            texto = texto.replace(/\./g, "");
+
+        }
+
+    } else if (
+        texto.includes(",")
+    ) {
+
+        const partes = texto.split(",");
+
+        if (
+            partes.length > 1 &&
+            partes[partes.length - 1].length === 3
+        ) {
+
+            // 9,460,000
+            texto = texto.replace(/,/g, "");
+
+        } else {
+
+            // 9460000,50
+            texto = texto.replace(",", ".");
+
+        }
+
+    }
+
+    const numero = Number(texto);
+
+    return isNaN(numero) ? 0 : numero;
 
 }
 
