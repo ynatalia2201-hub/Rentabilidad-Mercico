@@ -1,1 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+    <title>Dashboard de Rentabilidad - Mercico</title>
+
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+    <header class="header">
+        <div>
+            <h1>Dashboard de Rentabilidad</h1>
+            <p>Mercico · Análisis de rentabilidad</p>
+        </div>
+    </header>
+
+
+    <main class="container">
+
+        <!-- FILTROS -->
+
+        <section class="filters">
+
+            <div class="filter">
+                <label>Año</label>
+                <select id="filtroAnio">
+                    <option value="todos">Todos</option>
+                </select>
+            </div>
+
+            <div class="filter">
+                <label>Mes</label>
+                <select id="filtroMes">
+                    <option value="todos">Todos</option>
+                </select>
+            </div>
+
+            <div class="filter">
+                <label>Cliente</label>
+                <select id="filtroCliente">
+                    <option value="todos">Todos</option>
+                </select>
+            </div>
+
+            <div class="filter">
+                <label>Línea</label>
+                <select id="filtroLinea">
+                    <option value="todos">Todas</option>
+                </select>
+            </div>
+
+            <div class="filter">
+                <label>Producto</label>
+                <select id="filtroProducto">
+                    <option value="todos">Todos</option>
+                </select>
+            </div>
+
+        </section>
+
+
+        <!-- INDICADORES -->
+
+        <section class="cards">
+
+            <div class="card">
+                <span>VENTAS</span>
+                <strong id="ventas">$0</strong>
+            </div>
+
+            <div class="card">
+                <span>COSTOS</span>
+                <strong id="costos">$0</strong>
+            </div>
+
+            <div class="card">
+                <span>UTILIDAD</span>
+                <strong id="utilidad">$0</strong>
+            </div>
+
+            <div class="card">
+                <span>MARGEN</span>
+                <strong id="margen">0%</strong>
+            </div>
+
+        </section>
+
+
+        <!-- CONTENIDO -->
+
+        <section class="dashboard-grid">
+
+            <div class="panel">
+                <h2>Rentabilidad por cliente</h2>
+                <div id="graficoClientes"></div>
+            </div>
+
+
+            <div class="panel">
+                <h2>Rentabilidad por línea</h2>
+                <div id="graficoLineas"></div>
+            </div>
+
+
+            <div class="panel full">
+                <h2>Rentabilidad por producto</h2>
+
+                <div class="table-container">
+
+                    <table>
+
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Ventas</th>
+                                <th>Costos</th>
+                                <th>Utilidad</th>
+                                <th>Margen</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="tablaProductos">
+
+                            <tr>
+                                <td colspan="5">
+                                    Cargando información...
+                                </td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <footer>
+        Dashboard de Rentabilidad · Mercico
+    </footer>
+
+
+    <script src="dashboard.js"></script>
+
+</body>
+</html>
